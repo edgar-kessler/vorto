@@ -22,13 +22,14 @@ pub fn download(root: &Path, id: &str) -> Result<()> {
     let total: u64 = entry.files.iter().map(|f| f.size).sum();
     let models = root.join("models");
     fs::create_dir_all(&models)?;
-    // One download of a model at a time, also across engines. Windows releases the lock
-    // when this process ends, however it ends.
+    // One download of a model at a time, also across engines. Windows releases the lock, and
+    // deletes its file, when this process ends, however it ends.
     let _lock = fs::OpenOptions::new()
         .write(true)
         .create(true)
         .truncate(false)
         .share_mode(0)
+        .custom_flags(windows_sys::Win32::Storage::FileSystem::FILE_FLAG_DELETE_ON_CLOSE)
         .open(models.join(format!(".{id}.lock")))
         .map_err(|_| anyhow::anyhow!("{} is already downloading.", entry.name))?;
     let partial = models.join(format!(".{id}.partial"));
