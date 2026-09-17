@@ -120,7 +120,7 @@
 {#if confirm}
   {@const n = s.history.length}
   <div class="scrim" transition:fade={{ duration: 160 }} onclick={() => (confirm = false)} role="presentation">
-    <div class="dialog" transition:scale={{ duration: 200, start: 0.96 }} onclick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="clear-title" tabindex="-1">
+    <div class="dialog" transition:scale={{ duration: 200, start: 0.96 }} onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.key === "Escape" && (confirm = false)} role="dialog" aria-modal="true" aria-labelledby="clear-title" tabindex="-1">
       <h2 id="clear-title">Clear {n} {n === 1 ? "dictation" : "dictations"}?</h2>
       <p class="muted">This can't be undone.</p>
       <div class="dialog-actions">

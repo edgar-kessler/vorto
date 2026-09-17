@@ -396,6 +396,9 @@ pub struct Controller {
     /// Install as soon as the download finishes: the user asked for it.
     install_when_ready: bool,
     next_update_check: Instant,
+    /// A check is on its way. Checks in the background don't show "checking", so a result the
+    /// user asked for stays on screen.
+    update_checking: bool,
 }
 
 fn epoch_ms() -> u64 {
@@ -478,6 +481,7 @@ impl Controller {
             update_bytes: None,
             install_when_ready: false,
             next_update_check: Instant::now() + Duration::from_secs(20),
+            update_checking: false,
         };
         controller.refresh_installed();
         if controller.installed() {
@@ -839,10 +843,10 @@ impl Controller {
                 }
             }
             Action::CheckForUpdates => {
-                if !matches!(
-                    self.update.status,
-                    "checking" | "downloading" | "installing" | "ready"
-                ) {
+                if !self.update_checking
+                    && !matches!(self.update.status, "downloading" | "installing" | "ready")
+                {
+                    self.update_checking = true;
                     self.update.status = "checking";
                     update::check(&self.app, self.tx.clone(), true);
                 }
@@ -860,35 +864,10 @@ impl Controller {
 
     fn update_event(&mut self, msg: UpdateMsg) {
         match msg {
-            UpdateMsg::Checked { found, asked } => match found {
-                Ok(Some(found))
-                    if self
-                        .update_found
-                        .as_ref()
-                        .is_some_and(|f| f.version == found.version)
-                        && self.update_bytes.is_some() =>
-                {
-                    // Already downloaded this session.
-                    self.update.status = "ready";
-                }
-                Ok(Some(found)) => {
-                    crate::log::write(format!("update available: {}", found.version));
-                    self.update.version = found.version.clone();
-                    self.update_found = Some(found);
-                    self.update_bytes = None;
-                    if self.store.settings.auto_update || asked {
-                        self.download_update();
-                    } else {
-                        self.update.status = "available";
-                    }
-                }
-                Ok(None) => self.update.status = if asked { "latest" } else { "idle" },
-                Err(e) => {
-                    crate::log::write(format!("update check failed: {e}"));
-                    // A check in the background fails quietly, for example while offline.
-                    self.update.status = if asked { "error" } else { "idle" };
-                }
-            },
+            UpdateMsg::Checked { found, asked } => {
+                self.update_checking = false;
+                self.update_checked(found, asked);
+            }
             UpdateMsg::Progress(fraction) => {
                 if self.update.status == "downloading" {
                     self.update.progress = fraction;
@@ -905,6 +884,50 @@ impl Controller {
                 crate::log::write(format!("update download failed: {e}"));
                 self.update.status = "error";
                 self.install_when_ready = false;
+            }
+        }
+    }
+    fn update_checked(
+        &mut self,
+        found: Result<Option<Box<tauri_plugin_updater::Update>>, String>,
+        asked: bool,
+    ) {
+        match found {
+            Ok(Some(found))
+                if self
+                    .update_found
+                    .as_ref()
+                    .is_some_and(|f| f.version == found.version)
+                    && self.update_bytes.is_some() =>
+            {
+                // Already downloaded this session.
+                self.update.status = "ready";
+            }
+            Ok(Some(found)) => {
+                crate::log::write(format!("update available: {}", found.version));
+                self.update.version = found.version.clone();
+                self.update_found = Some(found);
+                self.update_bytes = None;
+                if self.store.settings.auto_update || asked {
+                    self.download_update();
+                } else {
+                    self.update.status = "available";
+                }
+            }
+            Ok(None) => {
+                if asked {
+                    self.update.status = "latest";
+                } else if self.update.status == "error" {
+                    // The problem from before is gone.
+                    self.update.status = "idle";
+                }
+            }
+            Err(e) => {
+                crate::log::write(format!("update check failed: {e}"));
+                // A check in the background fails quietly, for example while offline.
+                if asked {
+                    self.update.status = "error";
+                }
             }
         }
     }
@@ -1634,10 +1657,11 @@ impl Controller {
         }
         if self.store.settings.auto_update
             && Instant::now() >= self.next_update_check
+            && !self.update_checking
             && matches!(self.update.status, "idle" | "latest" | "error")
         {
             self.next_update_check = Instant::now() + UPDATE_INTERVAL;
-            self.update.status = "checking";
+            self.update_checking = true;
             update::check(&self.app, self.tx.clone(), false);
         }
         if self.install_when_ready

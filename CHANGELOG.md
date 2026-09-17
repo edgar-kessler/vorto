@@ -1,4 +1,4 @@
-# Changelog
+﻿# Changelog
 
 All notable changes to Vorto are documented in this file.
 
@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and Vorto follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [1.0.1] - 2026-09-17
+
+### Fixed
+
+- "You have the latest version" no longer disappears when Vorto checks for updates in the background right after you asked.
+- An old update error goes away once a later check in the background succeeds.
+- Esc closes the dialog that asks before clearing History.
 
 ## [1.0.0] - 2026-09-17
 
@@ -27,5 +35,6 @@ The first public release.
 - Signed automatic updates from GitHub Releases, which can be turned off.
 - A clear message on processors without AVX2, which aren't supported yet.
 
-[Unreleased]: https://github.com/edgar-kessler/vorto/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/edgar-kessler/vorto/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/edgar-kessler/vorto/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/edgar-kessler/vorto/releases/tag/v1.0.0
