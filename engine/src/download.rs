@@ -211,7 +211,7 @@ fn fetch(
                 "This version of the model can't be downloaded any more. Update Vorto to get a current one."
             )))
         }
-        Err(ureq::Error::Status(403 | 407, _)) => {
+        Err(ureq::Error::Status(403, _)) => {
             return Err(Failure::Final(anyhow::anyhow!(
                 "The download was blocked. A firewall or proxy on this network may not allow it."
             )))
@@ -227,6 +227,19 @@ fn fetch(
         }
         Err(ureq::Error::Status(code, _)) => {
             return Err(Failure::Final(anyhow::anyhow!("The download server answered with an error ({code}).")))
+        }
+        // A proxy that refuses the connection answers as a transport error, not a status. A sign-in
+        // it asks for gives the same answer every time.
+        Err(ureq::Error::Transport(t)) if t.kind() == ureq::ErrorKind::ProxyUnauthorized => {
+            return Err(Failure::Final(anyhow::anyhow!(
+                "The download was blocked. The proxy on this network needs a sign-in Vorto can't provide."
+            )))
+        }
+        // Other refusals include a busy proxy (502 to 504), so they get the usual attempts.
+        Err(ureq::Error::Transport(t)) if t.kind() == ureq::ErrorKind::ProxyConnect => {
+            return Err(Failure::Retry(anyhow::anyhow!(
+                "The download was blocked. A firewall or proxy on this network may not allow it."
+            )))
         }
         Err(error) => return Err(Failure::Retry(network(error))),
     };
@@ -426,5 +439,46 @@ mod tests {
             format!("{:x}", state.hasher.finalize()),
             format!("{:x}", Sha256::digest(&body))
         );
+    }
+
+    #[test]
+    fn a_proxy_that_refuses_is_not_retried() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        thread::spawn(move || {
+            let mut stream = listener.incoming().next().unwrap().unwrap();
+            let mut reader = std::io::BufReader::new(stream.try_clone().unwrap());
+            loop {
+                let mut line = String::new();
+                if reader.read_line(&mut line).unwrap() == 0 || line == "\r\n" {
+                    break;
+                }
+            }
+            stream
+                .write_all(
+                    b"HTTP/1.1 407 Proxy Authentication Required\r\nContent-Length: 0\r\n\r\n",
+                )
+                .unwrap();
+        });
+        let agent = ureq::AgentBuilder::new()
+            .timeout(Duration::from_secs(10))
+            .proxy(ureq::Proxy::new(format!("127.0.0.1:{port}")).unwrap())
+            .build();
+        let dir = tempfile::tempdir().unwrap();
+        let mut state = State {
+            count: 0,
+            hasher: Sha256::new(),
+        };
+        let mut buffer = vec![0u8; 1024];
+        let result = fetch(
+            &agent,
+            "https://huggingface.co/model.bin",
+            &dir.path().join("model.bin"),
+            1_000,
+            &mut state,
+            &mut buffer,
+            |_| {},
+        );
+        assert!(matches!(result, Err(Failure::Final(_))));
     }
 }

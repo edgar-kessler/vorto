@@ -41,10 +41,11 @@ Then, from the repository root:
 
 ```bat
 npm ci --prefix ui
+npm --prefix ui run build
 cargo test --workspace
 ```
 
-`cargo test` builds the engine for the processor only. That's all you need for most changes.
+The app embeds the built UI from `ui\dist`, so build it before `cargo test`. `cargo test` builds the engine for the processor only. That's all you need for most changes.
 
 ## Building
 
@@ -92,9 +93,9 @@ Run these before opening a pull request:
 
 ```bat
 cargo fmt --check
+npm --prefix ui run build
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
-npm --prefix ui run build
 ```
 
 ## Pull requests
@@ -112,7 +113,8 @@ Contributions are released under the [MIT License](LICENSE), like the rest of Vo
 For maintainers:
 
 1. Set the version in `Cargo.toml` (`[workspace.package] version`) and in `ui/package.json`.
-2. Move the `Unreleased` entries in `CHANGELOG.md` under the new version.
-3. Push a tag `vX.Y.Z`.
+2. Run `cargo check --workspace` (without `--locked`) and `npm install --prefix ui --package-lock-only`, so `Cargo.lock` and `ui/package-lock.json` carry the new version. The release build runs `cargo test --locked`, which stops if `Cargo.lock` is out of date.
+3. Move the `Unreleased` entries in `CHANGELOG.md` under the new version.
+4. Commit the version bump together with both lock files and the changelog, then push a tag `vX.Y.Z`.
 
-The tag runs `.github/workflows/release.yml`. It builds the installer on GitHub Actions, signs the update files with the repository secrets `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, and publishes `Vorto_X.Y.Z_x64-setup.exe`, `Vorto-Setup.exe`, the `.sig` signature and `latest.json`, which installed copies of Vorto check for updates.
+The tag runs `.github/workflows/release.yml` in two jobs. The `build` job has read-only access and no secrets: it runs the tests, builds the installer and uploads it as a workflow artifact. The `release` job then signs the installer with the repository secrets `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, writes `latest.json` and publishes `Vorto_X.Y.Z_x64-setup.exe`, `Vorto-Setup.exe`, the `.sig` signature and `latest.json`, which installed copies of Vorto check for updates. Keeping the two apart means the build and its dependencies never see the signing key or get write access to the repository.

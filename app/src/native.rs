@@ -47,6 +47,16 @@ fn wide(s: &str) -> Vec<u16> {
     s.encode_utf16().chain(Some(0)).collect()
 }
 
+/// A Windows message box, for problems Vorto can't show in its own window. With `question`,
+/// it has OK and Cancel and returns whether OK was chosen.
+pub fn message_box(text: &str, question: bool) -> bool {
+    use windows_sys::Win32::UI::WindowsAndMessaging::{
+        MessageBoxW, IDOK, MB_ICONERROR, MB_OK, MB_OKCANCEL,
+    };
+    let flags = MB_ICONERROR | if question { MB_OKCANCEL } else { MB_OK };
+    unsafe { MessageBoxW(0, wide(text).as_ptr(), wide("Vorto").as_ptr(), flags) == IDOK }
+}
+
 pub fn foreground() -> HWND {
     unsafe { GetForegroundWindow() }
 }
@@ -632,6 +642,14 @@ pub fn insert(text: &str, hwnd: HWND, paste: bool, restore: bool) -> Outcome {
         }));
     }
     Outcome::Inserted
+}
+
+/// Waits for the clipboard restore after the last paste, before Vorto exits.
+pub fn finish_restore() {
+    let pending = RESTORE.lock().unwrap_or_else(|e| e.into_inner()).take();
+    if let Some(restore) = pending {
+        let _ = restore.join();
+    }
 }
 
 /// Remote desktop and virtual machine windows fetch pasted data over their connection,

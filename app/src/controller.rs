@@ -9,7 +9,7 @@ use crate::{
 use serde::{Deserialize, Serialize};
 use serde_json::value::RawValue;
 use std::{
-    collections::HashMap,
+    collections::{BTreeMap, HashMap},
     sync::{
         mpsc::{Receiver, RecvTimeoutError, Sender},
         Arc, Mutex,
@@ -193,8 +193,8 @@ struct Snapshot<'a> {
     gpu_build: bool,
     mic_test: bool,
     autostart: bool,
-    /// Icons of the apps in History.
-    app_icons: HashMap<&'a str, &'a str>,
+    /// Icons of the apps in History. Sorted, so an unchanged state serializes the same way.
+    app_icons: BTreeMap<&'a str, &'a str>,
     update: &'a UpdateView,
 }
 
@@ -202,12 +202,19 @@ struct Snapshot<'a> {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct HudSnapshot<'a> {
-    hud: &'a Hud,
+    hud: HudView<'a>,
     recording: bool,
     recording_since: u64,
     recording_limit: u64,
     settings: HudSettings<'a>,
     target: Option<&'a Target>,
+}
+/// The pill's copy of `Hud`, with words only while it shows.
+#[derive(Serialize)]
+struct HudView<'a> {
+    mode: &'static str,
+    text: &'a str,
+    live: &'a str,
 }
 #[derive(Serialize)]
 struct HudSettings<'a> {
@@ -315,6 +322,8 @@ struct Pending {
     rate: u64,
     file: Option<tempfile::NamedTempFile>,
     seconds: f32,
+    /// Length of the part the final pass recognizes.
+    tail_seconds: f32,
 }
 
 pub struct Controller {
@@ -352,6 +361,9 @@ pub struct Controller {
     committed: String,
     /// Device-rate sample where `committed` ends.
     committed_end: usize,
+    /// The language Whisper heard earlier in this dictation, so a short final part in auto
+    /// mode isn't taken for another language.
+    detected_language: Option<String>,
     last_preview: Instant,
     stopped_at: Instant,
     /// Counts dictations, so late replies for one never change the next.
@@ -366,6 +378,10 @@ pub struct Controller {
     reload_needed: bool,
     /// The graphics card crashed the engine this session: Whisper stays on the processor.
     gpu_failed: bool,
+    /// The running engine is the graphics card one. Settings can change while it works.
+    engine_gpu: bool,
+    /// Insertions into other apps not finished yet.
+    inserting: u32,
     /// Loading waits until then after a start at sign-in, unless a dictation needs the model.
     load_at: Option<Instant>,
     models_installed: Vec<bool>,
@@ -440,6 +456,7 @@ impl Controller {
             preview_preparing: false,
             committed: String::new(),
             committed_end: 0,
+            detected_language: None,
             last_preview: Instant::now(),
             stopped_at: Instant::now(),
             dictation: 0,
@@ -448,6 +465,8 @@ impl Controller {
             slow_engine: false,
             reload_needed: false,
             gpu_failed: false,
+            engine_gpu: false,
+            inserting: 0,
             load_at: None,
             models_installed: Vec::new(),
             installed_checked: Instant::now(),
@@ -666,27 +685,34 @@ impl Controller {
     }
 
     fn inserted(&mut self, outcome: native::Outcome, text: String) {
+        self.inserting = self.inserting.saturating_sub(1);
         crate::log::write(format!(
             "inserted {} ms after release",
             self.stopped_at.elapsed().as_millis()
         ));
         // A later dictation may already own the pill.
         let busy = self.busy_dictating();
-        let message = match outcome {
+        let problem = match outcome {
             native::Outcome::Inserted => {
                 if !busy {
                     self.show_hud("done", "Inserted", Some(Duration::from_millis(1100)));
                 }
                 return;
             }
-            native::Outcome::FocusLost => "Couldn't insert. Press Ctrl+V to paste.",
-            native::Outcome::Elevated => "That app runs as administrator. Press Ctrl+V to paste.",
+            native::Outcome::FocusLost => "Couldn't insert.",
+            native::Outcome::Elevated => "That app runs as administrator.",
         };
         // Out of clipboard history: the text is only there to be pasted, and it's in Vorto's History.
-        native::set_clipboard_private(&text);
+        let copied = native::set_clipboard_private(&text);
         if let Err(e) = self.store.forget_app(&text) {
             crate::log::write(format!("history not updated: {e}"));
         }
+        // Another app can hold the clipboard open. The Dictate page shows the text either way.
+        let message = if copied {
+            format!("{problem} Press Ctrl+V to paste.")
+        } else {
+            format!("{problem} Open Vorto to copy the text.")
+        };
         if !busy && self.pill() {
             self.show_hud("notice", message, Some(Duration::from_millis(2600)));
         } else {
@@ -891,8 +917,9 @@ impl Controller {
         update::download(*found, self.tx.clone());
     }
     fn install_update(&mut self) {
-        // Never in the middle of a dictation or a model download: it runs when the user is done.
-        if self.busy_dictating() || self.downloading.is_some() {
+        // Never in the middle of a dictation, an insertion or a model download: it runs when the
+        // user is done.
+        if self.busy_dictating() || self.inserting > 0 || self.downloading.is_some() {
             self.install_when_ready = true;
             return;
         }
@@ -907,9 +934,18 @@ impl Controller {
         self.engine.stop();
         // Otherwise the icon stays in the tray until the mouse passes over it.
         drop(self.app.remove_tray_by_id("vorto"));
+        // The installer exits Vorto, which would cut short putting back the user's clipboard.
+        native::finish_restore();
         if let Err(e) = update::install(&found, &bytes) {
             // The updater already removed the tray icon and hid the windows: start over.
             crate::log::write(format!("update install failed: {e}"));
+            native::message_box(
+                &format!(
+                    "Vorto couldn't install the update to version {}.\n\n{e}\n\nIt keeps running the current version.",
+                    found.version
+                ),
+                false,
+            );
             self.app.restart();
         }
     }
@@ -933,6 +969,17 @@ impl Controller {
     fn gpu(&self) -> bool {
         self.store.settings.gpu && !self.gpu_failed && self.gpu_engine
     }
+    /// In auto mode, clips too short to tell languages apart get the language heard last in this
+    /// dictation. Longer ones are detected on their own, so one misheard phrase can't set the
+    /// language of everything after it.
+    fn language(&self, seconds: f32) -> String {
+        match &self.detected_language {
+            Some(language) if self.store.settings.language == "auto" && seconds < 3.0 => {
+                language.clone()
+            }
+            _ => self.store.settings.language.clone(),
+        }
+    }
     /// Whisper with the graphics card on runs in the graphics card engine; everything else,
     /// including downloads, in the processor engine.
     fn gpu_model(&self) -> bool {
@@ -951,6 +998,7 @@ impl Controller {
             return;
         }
         let gpu = self.gpu_model();
+        self.engine_gpu = gpu;
         let result = self.engine.launch(&self.store.root, gpu).and_then(|_| {
             self.engine.send(
                 Command::Load {
@@ -974,6 +1022,7 @@ impl Controller {
         self.download_error = None;
         // The model in use only changes once the download is complete.
         self.downloading = Some(model.id);
+        self.engine_gpu = false;
         let result = self.engine.launch(&self.store.root, false).and_then(|_| {
             self.engine.send(
                 Command::Download {
@@ -1025,6 +1074,7 @@ impl Controller {
                 self.dictation += 1;
                 self.committed.clear();
                 self.committed_end = 0;
+                self.detected_language = None;
                 self.recorder = Some(recorder);
                 self.started = Instant::now();
                 self.started_epoch = epoch_ms();
@@ -1105,6 +1155,7 @@ impl Controller {
             rate,
             file: None,
             seconds,
+            tail_seconds: seconds,
         });
         let name = if self.target_hwnd != 0 {
             self.target_name()
@@ -1151,6 +1202,7 @@ impl Controller {
             if tail.len() < 8000 {
                 tail.resize(8000, 0.0);
             }
+            pending.tail_seconds = tail.len() as f32 / 16000.0;
             match write_wav(&tail) {
                 Ok(file) => pending.file = Some(file),
                 Err(e) => {
@@ -1159,12 +1211,15 @@ impl Controller {
                 }
             }
         }
-        let Some(file) = self.pending.as_ref().and_then(|p| p.file.as_ref()) else {
+        let Some(pending) = self.pending.as_ref() else {
+            return;
+        };
+        let Some(file) = pending.file.as_ref() else {
             return;
         };
         let command = Command::Transcribe {
             audio: file.path().into(),
-            language: self.store.settings.language.clone(),
+            language: self.language(pending.tail_seconds),
         };
         if let Err(e) = self.engine.send(command, Phase::Transcribing) {
             self.engine.fail(&e.to_string());
@@ -1177,6 +1232,7 @@ impl Controller {
         hotkey::set_recording(false);
         hotkey::force_inactive();
         self.dictation += 1;
+        self.detected_language = None;
         let was_pending = self.pending.take().is_some();
         let was_downloading = self.downloading.take().is_some();
         // A preview still in flight stays, so its reply is not taken for the next one.
@@ -1204,6 +1260,7 @@ impl Controller {
         };
         let partial = std::mem::take(&mut self.committed).trim().to_string();
         self.committed_end = 0;
+        self.detected_language = None;
         let topic = self.error_topic();
         if partial.is_empty() {
             self.show_hud(
@@ -1216,17 +1273,19 @@ impl Controller {
             if let Err(e) = self.store.add(partial.clone(), seconds, String::new()) {
                 crate::log::write(format!("history not saved: {e}"));
             }
-            native::set_clipboard_private(&partial);
+            let copied = native::set_clipboard_private(&partial);
             self.latest = partial;
-            self.show_hud(
-                "error",
-                "Partly copied. Press Ctrl+V to paste",
-                Some(Duration::from_millis(2600)),
-            );
+            // Another app can hold the clipboard open. The Dictate page shows the words either way.
+            let (pill, place) = if copied {
+                ("Partly copied. Press Ctrl+V to paste", "on your clipboard")
+            } else {
+                ("Partly kept in Vorto", "on the Dictate page")
+            };
+            self.show_hud("error", pill, Some(Duration::from_millis(2600)));
             self.say_about(
                 topic,
                 "error",
-                format!("{detail} The words heard before that are on your clipboard."),
+                format!("{detail} The words heard before that are {place}."),
             );
         }
         self.here = false;
@@ -1317,7 +1376,7 @@ impl Controller {
         }
         let command = Command::Preview {
             audio: file.path().into(),
-            language: self.store.settings.language.clone(),
+            language: self.language(seconds),
         };
         let phase = self.engine.phase;
         if self.engine.send(command, phase).is_ok() {
@@ -1360,6 +1419,8 @@ impl Controller {
             let paste = self.store.settings.method == "paste";
             let restore = self.store.settings.restore_clipboard;
             let tx = self.tx.clone();
+            // Counted until Inserted arrives, so an update waits for the text to land.
+            self.inserting += 1;
             std::thread::spawn(move || {
                 let _turn = INSERTING.lock().unwrap_or_else(|e| e.into_inner());
                 let outcome = native::insert(&text, hwnd, paste, restore);
@@ -1409,11 +1470,8 @@ impl Controller {
                     self.flight = None;
                     let failed = self.downloading.take();
                     self.refresh_installed();
-                    let crashed_on_gpu = failed.is_none()
-                        && detail == vorto::supervisor::CRASHED
-                        && self.gpu()
-                        && data::model(&self.store.settings.model)
-                            .is_some_and(|m| m.family == Family::Whisper);
+                    let crashed_on_gpu =
+                        failed.is_none() && detail == vorto::supervisor::CRASHED && self.engine_gpu;
                     if crashed_on_gpu {
                         // A graphics driver took the engine down. The processor is slower but works.
                         crate::log::write(
@@ -1432,7 +1490,7 @@ impl Controller {
                     }
                 }
                 Event::Progress { .. } => {}
-                Event::Preview { text, ok, .. } => {
+                Event::Preview { text, ok, language } => {
                     let Some(flight) = self.flight.take() else {
                         continue;
                     };
@@ -1443,6 +1501,11 @@ impl Controller {
                     }
                     if flight.dictation != self.dictation {
                         continue;
+                    }
+                    // The latest language heard in at least two seconds of speech; shorter clips
+                    // are too little to tell languages apart reliably.
+                    if ok && language.is_some() && flight.seconds >= 2.0 {
+                        self.detected_language = language;
                     }
                     let text = text.trim();
                     match flight.draft {
@@ -1580,6 +1643,7 @@ impl Controller {
         if self.install_when_ready
             && self.update.status == "ready"
             && !self.busy_dictating()
+            && self.inserting == 0
             && self.downloading.is_none()
         {
             self.install_update();
@@ -1592,7 +1656,12 @@ impl Controller {
         // The hidden pill gets nothing that changes, so it has nothing to redraw.
         let showing = self.hud.mode != "hidden";
         let hud = HudSnapshot {
-            hud: &self.hud,
+            // Previews keep changing `live` for a dictation the pill doesn't show.
+            hud: HudView {
+                mode: self.hud.mode,
+                text: if showing { &self.hud.text } else { "" },
+                live: if showing { &self.hud.live } else { "" },
+            },
             recording: showing && self.recorder.is_some(),
             recording_since: self.started_epoch,
             recording_limit: MAX_RECORDING_SECS,

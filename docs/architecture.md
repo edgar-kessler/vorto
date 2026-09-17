@@ -162,7 +162,9 @@ The look, motion and wording follow [design.md](design.md).
 ### Security boundaries
 
 - A Content Security Policy in `app/tauri.conf.json` allows only the app's own scripts, its own and inline styles, images from the app or data URLs, and IPC connections.
-- `app/capabilities/default.json` grants the windows the core defaults plus minimizing, maximizing, closing and dragging. Everything else goes through Vorto's own commands to the controller.
+- `app/capabilities/default.json` gives the main window the core defaults plus minimize, toggle-maximize, close and start-dragging.
+- `app/capabilities/indicator.json` gives the recording pill (`hud`) only `core:event:default`, so it can listen for its state but control no windows.
+- Everything else, in both windows, goes through Vorto's own commands to the controller.
 - The UI never gets file system, shell or network permissions.
 
 ## Data on disk
@@ -191,7 +193,7 @@ Update files are signed with minisign. The public key is in `app/tauri.conf.json
 - **Delay-loaded libraries.** The prebuilt ONNX Runtime imports DirectML, Direct3D 12 and DXGI, and the Vulkan backend imports `vulkan-1.dll`. `engine/build.rs` delay-loads them, so the engine starts on PCs without them, and `scripts/stage.mjs` checks every executable's imports before an installer is built.
 - **Instruction set baseline.** whisper.cpp is compiled for AVX2 (`.cargo/config.toml`), not for the build machine's processor, so a build runs on every supported PC.
 - **Installer.** Tauri's NSIS bundler creates a per-user installer that embeds the WebView2 bootstrapper. `app/tauri.release.conf.json` adds both engines, the Visual C++ runtime DLLs and `THIRD-PARTY-NOTICES.txt`, which `scripts/notices.mjs` generates.
-- **Releases.** Pushing a tag `vX.Y.Z` runs `.github/workflows/release.yml`, which builds on GitHub Actions, signs the installer for the updater in a separate step (the only one that sees the key), checks the signature against the public key and publishes the installer, `Vorto-Setup.exe`, the signature and `latest.json`.
+- **Releases.** Pushing a tag `vX.Y.Z` runs `.github/workflows/release.yml` in two jobs. `build` has read-only access and no secrets: it runs the tests, builds the installer and uploads it as a workflow artifact. `release` runs on a fresh runner, so the build and its dependencies never see the signing key or the write token: it signs the installer for the updater, checks the signature against the public key, writes `latest.json` and publishes the installer, `Vorto-Setup.exe`, the signature and `latest.json`.
 
 ## Tests
 

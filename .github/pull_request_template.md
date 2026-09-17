@@ -9,9 +9,9 @@
 ## Checklist
 
 - [ ] `cargo fmt --check`
+- [ ] `npm --prefix ui run build`
 - [ ] `cargo clippy --workspace --all-targets -- -D warnings`
 - [ ] `cargo test --workspace`
-- [ ] `npm --prefix ui run build`
 - [ ] Interface changes follow [docs/design.md](https://github.com/edgar-kessler/vorto/blob/main/docs/design.md), with screenshots in light and dark mode below
 - [ ] Noticeable changes have a line under `Unreleased` in `CHANGELOG.md`
 - [ ] Audio and text still stay on the PC, and no transcript text is logged

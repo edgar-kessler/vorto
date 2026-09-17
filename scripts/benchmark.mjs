@@ -1,6 +1,8 @@
 // Development benchmark for the engine worker: download, cold load, wake-up after a
 // worker restart, transcription speed and peak memory for each voice model.
 // Usage: node scripts/benchmark.mjs [vorto-engine.exe] [model ...] [--cpu]
+// Like the app, Whisper runs on the graphics card in vorto-engine-gpu.exe from the same folder,
+// and Parakeet in vorto-engine.exe. With --cpu, every model runs in vorto-engine.exe.
 // The engine defaults to C:/vt/release (VORTO_TARGET), the clips to output/bench-en.wav and
 // output/bench-de.wav: 16 kHz mono recordings of your own, which are not in the repository.
 import { spawn, execFileSync } from "node:child_process";
@@ -11,14 +13,19 @@ import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const args = process.argv.slice(2);
-const gpu = !args.includes("--cpu");
+const cpu = args.includes("--cpu");
 const rest = args.filter((a) => a !== "--cpu");
-const exe = rest[0]?.endsWith(".exe") ? rest.shift() : path.join(process.env.VORTO_TARGET ?? "C:/vt", "release/vorto-engine.exe");
+const cpuExe = rest[0]?.endsWith(".exe") ? rest.shift() : path.join(process.env.VORTO_TARGET ?? "C:/vt", "release/vorto-engine.exe");
 const models = rest.length ? rest : ["parakeet-v3", "whisper-turbo", "whisper-small", "whisper-base"];
 const data = process.env.VORTO_DATA_DIR ?? path.join(process.env.LOCALAPPDATA, "app.vorto.desktop");
 const clips = { en: path.join(root, "output/bench-en.wav"), de: path.join(root, "output/bench-de.wav") };
+const gpuExe = path.join(path.dirname(cpuExe), "vorto-engine-gpu.exe");
+const gpuReady = !cpu && existsSync(gpuExe);
+if (!cpu && !gpuReady && models.some((m) => m.startsWith("whisper-"))) {
+  console.warn(`${gpuExe} is missing, so Whisper runs on the processor. Build it with scripts\\build.cmd.`);
+}
 
-function worker() {
+function worker(exe) {
   const child = spawn(exe, [], { stdio: ["pipe", "pipe", "ignore"], windowsHide: true });
   const queue = [];
   let waiting = null;
@@ -45,8 +52,11 @@ function worker() {
 
 const results = [];
 for (const model of models) {
-  let w = worker();
-  const row = { model, gpu };
+  // Only the graphics card engine can use the graphics card, and it can't run Parakeet.
+  const gpu = gpuReady && model.startsWith("whisper-");
+  const exe = gpu ? gpuExe : cpuExe;
+  let w = worker(exe);
+  const row = { model, engine: path.basename(exe) };
   try {
     if (!existsSync(path.join(data, "models", model, "verified"))) {
       row.download_s = +(await w.request({ op: "download", root: data, model })).seconds.toFixed(1);
@@ -59,7 +69,7 @@ for (const model of models) {
     }
     row.peak_mb = w.peakMb();
     w.child.kill();
-    w = worker();
+    w = worker(exe);
     row.wake_s = +(await w.request({ op: "load", root: data, model, gpu })).seconds.toFixed(2);
   } catch (e) {
     row.error = e.message;

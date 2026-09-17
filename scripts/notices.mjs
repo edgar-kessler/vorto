@@ -1,7 +1,9 @@
-// Writes the third-party notices for everything compiled into vorto.exe and vorto-engine.exe:
-// Rust crates, ONNX Runtime, whisper.cpp/ggml and the web UI's runtime npm packages.
+// Writes the third-party notices for everything compiled into vorto.exe, vorto-engine.exe and
+// vorto-engine-gpu.exe: Rust crates, ONNX Runtime, whisper.cpp/ggml, the Khronos Vulkan headers
+// and the web UI's runtime npm packages.
 // Usage: node scripts/notices.mjs <output file>
-// Needs `npm ci --prefix ui` and network access for the ONNX Runtime notices.
+// Needs `npm ci --prefix ui`, network access for the ONNX Runtime notices and VULKAN_SDK set to
+// the Vulkan SDK the graphics card engine is built with (scripts\build.cmd sets it).
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -80,6 +82,57 @@ if (ortVersion) {
   add("ONNX Runtime", ortVersion, "MIT", "https://github.com/microsoft/onnxruntime", [], texts);
 }
 
+// The graphics card engine compiles whisper.cpp's Vulkan backend with the Vulkan SDK's headers.
+// The SDK has no license file for them, so the notice is the MIT license, one of their two, with
+// the copyright line from the headers. A license file next to them would be used instead.
+const vulkanSdk = process.env.VULKAN_SDK;
+if (vulkanSdk) {
+  const include = join(vulkanSdk, "Include", "vulkan");
+  const core = join(include, "vulkan_core.h");
+  const header = readFileSync(core, "utf8");
+  const copyright = header.match(/Copyright [\d-]+ The Khronos Group Inc\./)?.[0];
+  const license = header.match(/SPDX-License-Identifier: (.+)/)?.[1].trim();
+  const api = header.match(/#define VK_HEADER_VERSION_COMPLETE VK_MAKE_API_VERSION\(0, (\d+), (\d+), VK_HEADER_VERSION\)/);
+  const patch = header.match(/#define VK_HEADER_VERSION (\d+)/)?.[1];
+  if (!copyright || license !== "Apache-2.0 OR MIT" || !api || !patch) {
+    throw new Error(`Unexpected copyright, license or version in ${core}`);
+  }
+  const mit = [
+    "MIT License",
+    "",
+    copyright,
+    "",
+    "Permission is hereby granted, free of charge, to any person obtaining a copy",
+    'of this software and associated documentation files (the "Software"), to deal',
+    "in the Software without restriction, including without limitation the rights",
+    "to use, copy, modify, merge, publish, distribute, sublicense, and/or sell",
+    "copies of the Software, and to permit persons to whom the Software is",
+    "furnished to do so, subject to the following conditions:",
+    "",
+    "The above copyright notice and this permission notice shall be included in all",
+    "copies or substantial portions of the Software.",
+    "",
+    'THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR',
+    "IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,",
+    "FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE",
+    "AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER",
+    "LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,",
+    "OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE",
+    "SOFTWARE.",
+  ].join("\n");
+  const files = licenseFiles(include);
+  add(
+    "Vulkan-Headers / Vulkan-Hpp",
+    `${api[1]}.${api[2]}.${patch}`,
+    license,
+    "https://github.com/KhronosGroup/Vulkan-Headers",
+    files,
+    files.length ? [] : [mit],
+  );
+} else {
+  console.warn("VULKAN_SDK isn't set, so the notices don't cover the Vulkan headers in vorto-engine-gpu.exe.");
+}
+
 // Web UI: runtime npm dependencies bundled into ui/dist.
 const ui = join(root, "ui");
 const findNpm = (from, name) => {
@@ -123,9 +176,9 @@ const wrap = (names) =>
   }, []).join(",\n");
 let out =
   "THIRD-PARTY NOTICES\n\n" +
-  "Vorto is distributed under the MIT license (see LICENSE). vorto.exe and vorto-engine.exe\n" +
-  "also contain the third-party software listed below. Each section names the components,\n" +
-  "followed by the license or notice text they are distributed with.\n";
+  "Vorto is distributed under the MIT license (see LICENSE). vorto.exe, vorto-engine.exe and\n" +
+  "vorto-engine-gpu.exe also contain the third-party software listed below. Each section names\n" +
+  "the components, followed by the license or notice text they are distributed with.\n";
 for (const [text, names] of [...groups].sort((a, b) => a[1][0].localeCompare(b[1][0]))) {
   out += `\n${rule}\n${wrap(names)}\n${rule}\n\n${text}\n`;
 }

@@ -249,11 +249,12 @@ You need Windows 10 or 11 (x64), Rust 1.98.1 or newer, Node.js 24, Visual Studio
 
 ```bat
 npm ci --prefix ui
+npm --prefix ui run build
 cargo test --workspace
 scripts\build.cmd
 ```
 
-`scripts\build.cmd` makes a release build of the app and both voice engines in `C:\vt\release`. Add `--cpu` to leave out the graphics card engine (then the Vulkan SDK isn't needed), or `--installer` for the NSIS installer in `target\release\bundle\nsis\`.
+The app embeds the built UI from `ui\dist`, so build it before `cargo test`. `scripts\build.cmd` makes a release build of the app and both voice engines in `C:\vt\release`. Add `--cpu` to leave out the graphics card engine (then the Vulkan SDK isn't needed), or `--installer` for the NSIS installer in `target\release\bundle\nsis\`.
 
 [CONTRIBUTING.md](CONTRIBUTING.md) covers the details, UI development in the browser and the checks to run before a pull request.
 

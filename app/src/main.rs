@@ -87,7 +87,9 @@ fn started_hidden() -> bool {
 /// WebView2 treats a page in a hidden window as visible.
 #[tauri::command]
 fn start_hidden(window: WebviewWindow) -> bool {
-    let hidden = started_hidden();
+    // The tray or a second launch can show the window before the page loads, and a reload
+    // asks again: a window on screen stays awake.
+    let hidden = started_hidden() && !window.is_visible().unwrap_or(false);
     if hidden && window.label() == "main" {
         set_awake(&window, false);
         report_visible(window.app_handle(), false);
@@ -99,15 +101,6 @@ fn start_hidden(window: WebviewWindow) -> bool {
 #[tauri::command]
 fn show_window(app: AppHandle) {
     show_main(&app);
-}
-
-fn message_box(text: &str, question: bool) -> bool {
-    use windows_sys::Win32::UI::WindowsAndMessaging::{
-        MessageBoxW, IDOK, MB_ICONERROR, MB_OK, MB_OKCANCEL,
-    };
-    let wide = |s: &str| s.encode_utf16().chain(Some(0)).collect::<Vec<u16>>();
-    let flags = MB_ICONERROR | if question { MB_OKCANCEL } else { MB_OK };
-    unsafe { MessageBoxW(0, wide(text).as_ptr(), wide("Vorto").as_ptr(), flags) == IDOK }
 }
 
 /// The installer sets up WebView2, but a copied exe or a broken runtime would otherwise fail
@@ -152,7 +145,7 @@ fn memory_gb() -> Option<f64> {
 
 fn main() {
     if !webview2_installed() {
-        if message_box(
+        if native::message_box(
             "Vorto needs the Microsoft Edge WebView2 Runtime, which is part of Windows 11 and most Windows 10 PCs.\n\nSelect OK to open Microsoft's download page. Install the Evergreen Runtime, then start Vorto again.",
             true,
         ) {
@@ -162,7 +155,7 @@ fn main() {
     }
     std::panic::set_hook(Box::new(|info| {
         log::write(format!("crashed: {info}"));
-        message_box(
+        native::message_box(
             "Vorto ran into a problem and has to close. Start it again to keep dictating.",
             false,
         );
@@ -194,7 +187,7 @@ fn main() {
             // Tauri turns an error here into a crash without a word, so it's reported here.
             if let Err(error) = setup(app, tx, rx, published, hidden) {
                 log::write(format!("could not start: {error}"));
-                message_box(&format!("Vorto couldn't start.\n\n{error}"), false);
+                native::message_box(&format!("Vorto couldn't start.\n\n{error}"), false);
                 std::process::exit(1);
             }
             Ok(())
@@ -224,7 +217,7 @@ fn main() {
         });
     if let Err(error) = result.run(tauri::generate_context!()) {
         log::write(format!("could not start: {error}"));
-        message_box(&format!("Vorto couldn't start.\n\n{error}"), false);
+        native::message_box(&format!("Vorto couldn't start.\n\n{error}"), false);
     }
 }
 
