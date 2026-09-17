@@ -1,0 +1,46 @@
+[package]
+name = "vorto-engine"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Vorto's voice engine: local speech recognition in its own process."
+
+[[bin]]
+name = "vorto-engine"
+path = "src/main.rs"
+
+[features]
+default = ["parakeet"]
+# NVIDIA Parakeet through ONNX Runtime, on the processor.
+parakeet = ["dep:ort"]
+# Whisper on the graphics card. Needs the Vulkan SDK to build. Releases ship this build as
+# vorto-engine-gpu.exe (without Parakeet) next to the processor engine: whisper.cpp's Vulkan
+# backend needs the Vulkan loader even to run on the processor.
+vulkan = ["whisper-rs/vulkan"]
+
+[dependencies]
+vorto = { path = ".." }
+anyhow = "1"
+serde_json = "1"
+hound = "3.5"
+sha2 = "0.10"
+native-tls = "0.2"
+ureq = { version = "2.12", default-features = false, features = ["native-tls"] }
+whisper-rs = { version = "0.16", features = ["raw-api"] }
+ort = { version = "=2.0.0-rc.13", default-features = false, features = ["std", "download-binaries", "tls-native", "api-27"], optional = true }
+windows-sys = { version = "0.52", features = [
+    "Win32_Foundation",
+    "Win32_Networking_WinHttp",
+    "Win32_Storage_FileSystem",
+    "Win32_System_Console",
+    "Win32_System_Diagnostics_Debug",
+    "Win32_System_IO",
+    "Win32_System_Kernel",
+    "Win32_System_LibraryLoader",
+    "Win32_System_SystemInformation",
+    "Win32_System_Threading",
+] }
+
+[dev-dependencies]
+tempfile = "3"

@@ -1,0 +1,32 @@
+[workspace]
+members = [".", "app", "engine"]
+resolver = "2"
+
+[workspace.package]
+version = "1.0.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/edgar-kessler/vorto"
+
+[package]
+name = "vorto"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Vorto core: recording, settings, the voice model catalog and the engine supervisor."
+
+[dependencies]
+anyhow = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+cpal = "0.16"
+rubato = "0.16"
+tempfile = "3"
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+windows-sys = { version = "0.52", features = ["Win32_Foundation", "Win32_Security", "Win32_System_JobObjects", "Win32_System_Threading"] }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true

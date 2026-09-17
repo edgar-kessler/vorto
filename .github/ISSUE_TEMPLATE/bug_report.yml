@@ -1,0 +1,101 @@
+name: Bug report
+description: Something in Vorto doesn't work as it should.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this. The details below make most problems possible to fix.
+
+        Found a security vulnerability? Please don't file it here. Report it privately: see [SECURITY.md](https://github.com/edgar-kessler/vorto/blob/main/SECURITY.md).
+
+  - type: input
+    id: version
+    attributes:
+      label: Vorto version
+      description: Shown in Settings → About.
+      placeholder: "1.0.0"
+    validations:
+      required: true
+
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      description: Press Win+R, run `winver`, and copy the version and build.
+      placeholder: "Windows 11 24H2, build 26100"
+    validations:
+      required: true
+
+  - type: input
+    id: hardware
+    attributes:
+      label: Processor and graphics card
+      description: Shown in Task Manager → Performance.
+      placeholder: "AMD Ryzen 5 5600, NVIDIA GeForce RTX 3060"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: model
+    attributes:
+      label: Voice model
+      options:
+        - Parakeet v3
+        - Whisper Turbo
+        - Whisper Small
+        - Whisper Base
+        - None downloaded yet
+    validations:
+      required: true
+
+  - type: input
+    id: app
+    attributes:
+      label: App you dictated into
+      description: If the problem happens in a particular app.
+      placeholder: "Outlook, Slack, Chrome, …"
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What did you see? Error messages in the pill or the window help a lot.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open …
+        2. Hold the shortcut and say …
+        3. Let go and …
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: |
+        Open Settings → About → Data folder → Open, and attach `vorto.log` and `engine.log` (drag them into this field).
+        The logs contain diagnostics, never transcripts. Still, please look through them before you attach them.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you submit
+      options:
+        - label: I searched the existing issues and this hasn't been reported yet.
+          required: true
+        - label: I'm using the latest release of Vorto, or I noted why not.
+          required: false

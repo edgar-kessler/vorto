@@ -1,0 +1,9 @@
+[env]
+LIBCLANG_PATH = { value = "C:/Program Files/LLVM/bin", force = false }
+# Build whisper.cpp for a fixed x86-64 baseline (AVX2) instead of the build machine's CPU.
+# whisper-rs-sys does not watch these; after changing them run `cargo clean -p whisper-rs-sys`.
+GGML_NATIVE = { value = "OFF", force = false }
+GGML_AVX = { value = "ON", force = false }
+GGML_AVX2 = { value = "ON", force = false }
+GGML_BMI2 = { value = "ON", force = false }
+GGML_AVX512 = { value = "OFF", force = false }

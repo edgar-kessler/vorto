@@ -1,0 +1,55 @@
+[package]
+name = "vorto-app"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Vorto, local dictation for Windows."
+
+[[bin]]
+name = "vorto"
+path = "src/main.rs"
+
+[features]
+# Embeds ui/dist. Without it the exe loads the UI from the Vite dev server (devUrl).
+# Development against Vite: cargo run -p vorto-app --no-default-features
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]
+# Set when the engine next to the app is built with its `vulkan` feature: shows the graphics
+# card setting and live previews for Whisper.
+vulkan = []
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+vorto = { path = ".." }
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
+tauri-plugin-single-instance = "2"
+tauri-plugin-updater = "2"
+anyhow = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["raw_value"] }
+tempfile = "3"
+hound = "3.5"
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+image = { version = "0.25", default-features = false, features = ["png"] }
+base64 = "0.22"
+webview2-com = "0.38"
+windows-core = "0.61"
+windows-sys = { version = "0.52", features = [
+    "Win32_Foundation",
+    "Win32_Graphics_Gdi",
+    "Win32_System_Com",
+    "Win32_Security",
+    "Win32_Storage_FileSystem",
+    "Win32_System_DataExchange",
+    "Win32_System_LibraryLoader",
+    "Win32_System_Memory",
+    "Win32_System_Registry",
+    "Win32_System_SystemInformation",
+    "Win32_System_Threading",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_Shell",
+    "Win32_UI_WindowsAndMessaging",
+] }

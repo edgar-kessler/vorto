@@ -1,0 +1,47 @@
+name: Feature request
+description: An idea that would make Vorto better for you.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for sharing an idea. Describing the situation you're in helps more than a finished design.
+
+        Vorto keeps a few promises that every feature has to keep: recognition runs on the PC, there's no account and no telemetry, and audio and text never leave the PC.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: The situation or problem, in your own words.
+      placeholder: "When I dictate into …, I'd like to …"
+    validations:
+      required: true
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would help
+      description: How you imagine Vorto could handle it.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you've tried
+      description: Workarounds, settings or other apps you've used for this.
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Anything else
+      description: Screenshots, your language, the apps you dictate into, your hardware.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you submit
+      options:
+        - label: I searched the existing issues and this hasn't been suggested yet.
+          required: true

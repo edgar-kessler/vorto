@@ -1,0 +1,13 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "bundle": {
+    "externalBin": ["binaries/vorto-engine", "binaries/vorto-engine-gpu"],
+    "resources": {
+      "binaries/runtime/vcruntime140.dll": "vcruntime140.dll",
+      "binaries/runtime/vcruntime140_1.dll": "vcruntime140_1.dll",
+      "binaries/runtime/msvcp140.dll": "msvcp140.dll",
+      "binaries/runtime/msvcp140_1.dll": "msvcp140_1.dll",
+      "binaries/THIRD-PARTY-NOTICES.txt": "THIRD-PARTY-NOTICES.txt"
+    }
+  }
+}

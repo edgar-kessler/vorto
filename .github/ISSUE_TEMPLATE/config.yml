@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/edgar-kessler/vorto/security/advisories/new
+    about: Please report vulnerabilities privately, not in a public issue.
+  - name: Questions and answers
+    url: https://github.com/edgar-kessler/vorto#faq
+    about: Which voice model to pick, apps running as administrator, where your data lives and more.

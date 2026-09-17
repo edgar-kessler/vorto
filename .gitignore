@@ -1,0 +1,32 @@
+# Build output
+/target
+/dist
+/app/binaries/
+/app/gen/
+/ui/dist/
+node_modules/
+/site/.vite/
+
+# Local files that stay out of the repository
+/.venv
+/legacy
+/output
+/output*.png
+/brag-output/
+*.log
+*.bmp
+__pycache__/
+*.pyc
+
+# Instructions and settings for AI coding assistants
+.claude/
+CLAUDE.md
+CLAUDE.local.md
+AGENTS.md
+GEMINI.md
+.codex/
+.cursor/
+.cursorrules
+.windsurfrules
+.aider*
+copilot-instructions.md

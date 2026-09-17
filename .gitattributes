@@ -1,0 +1,4 @@
+* text=auto
+# cmd.exe needs CRLF line endings to find goto labels reliably.
+*.cmd text eol=crlf
+*.bat text eol=crlf

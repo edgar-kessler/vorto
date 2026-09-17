@@ -1,0 +1,52 @@
+name: Release
+# Pushing a tag vX.Y.Z builds the installer from a clean checkout and publishes it with the
+# signed update files the app's updater reads (latest.json). The version in Cargo.toml and
+# ui/package.json must match the tag.
+# Repository secrets: TAURI_SIGNING_PRIVATE_KEY and TAURI_SIGNING_PRIVATE_KEY_PASSWORD.
+on:
+  push:
+    tags: ['v*.*.*']
+permissions:
+  contents: write
+jobs:
+  windows:
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # master
+        with:
+          toolchain: 1.98.1
+      - uses: jakoch/install-vulkan-sdk-action@37effcfa045411f8bfbbda26df2fd1b3bf3436fa # v1.6.0
+        with:
+          vulkan_version: 1.4.357.0
+      - run: npm ci --prefix ui
+      - run: npm --prefix ui run build
+      # No build cache here: the published files come from a clean build.
+      - run: cargo test --locked --workspace
+      - name: Build the installer
+        shell: cmd
+        run: scripts\build.cmd --installer
+      # Only this step sees the update signing key, not the build and its dependencies.
+      - name: Sign the update
+        shell: pwsh
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          $setup = Get-ChildItem target/release/bundle/nsis -Filter '*-setup.exe' | Select-Object -First 1
+          ui/node_modules/.bin/tauri.cmd signer sign $setup.FullName
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+      - run: node scripts/release-files.mjs
+      - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        with:
+          name: Vorto ${{ github.ref_name }}
+          files: dist/*
+          fail_on_unmatched_files: true
+          generate_release_notes: true
+          make_latest: true
