@@ -2,53 +2,63 @@
   import { app, act, downloadText } from "./api.js";
   import Icon from "./Icon.svelte";
   import BrandLogo from "./BrandLogo.svelte";
+  import Meter from "./Meter.svelte";
 
   let { model, featured = false } = $props();
   let s = $derived($app);
   let inUse = $derived(model.installed && s.settings.model === model.id);
   let downloading = $derived(s.downloading === model.id);
   let busy = $derived(s.recording || s.downloading || s.phase === "transcribing");
+  let memory = $derived(model.memoryMb >= 1000 ? `${(model.memoryMb / 1000).toFixed(1)} GB` : `${model.memoryMb} MB`);
+  let percent = $derived(Math.round(Math.max(0, s.progress) * 100));
 </script>
 
 <article class="card" class:in-use={inUse} class:featured>
   <header>
-    <div class="avatar"><BrandLogo family={model.family} size={26} /></div>
-    <h3>{model.name}</h3>
-    {#if model.recommended && !inUse}<span class="chip rec">Recommended</span>{/if}
+    <div class="avatar"><BrandLogo family={model.family} size={28} /></div>
+    <div class="title">
+      <h3>{model.name}</h3>
+      <span class="sub">by {model.family === "parakeet" ? "NVIDIA" : "OpenAI"}</span>
+    </div>
+    {#if inUse}
+      <span class="badge live"><span class="dot"></span> In use</span>
+    {:else if model.recommended}
+      <span class="badge">Recommended</span>
+    {/if}
   </header>
 
-  <dl class="facts">
-    <div><dt><Icon name="memory" size={14} /></dt><dd>~{model.memoryMb >= 1000 ? `${(model.memoryMb / 1000).toFixed(1)} GB` : `${model.memoryMb} MB`} memory</dd></div>
-    <div><dt><Icon name="globe" size={14} /></dt><dd>{model.languages}</dd></div>
-  </dl>
-
   <div class="meters">
-    <div class="meter" role="img" aria-label="Speed {model.speed} of 5"><span aria-hidden="true">Speed</span><i aria-hidden="true" style="--v:{model.speed}"></i></div>
-    <div class="meter" role="img" aria-label="Accuracy {model.accuracy} of 5"><span aria-hidden="true">Accuracy</span><i aria-hidden="true" style="--v:{model.accuracy}"></i></div>
+    <Meter label="Speed" value={model.speed} />
+    <Meter label="Accuracy" value={model.accuracy} />
   </div>
-  <p class="hardware"><Icon name="cpu" size={13} /> {model.hardware}</p>
+
+  <div class="facts">
+    <span><Icon name="globe" size={14} /> {model.languages}</span>
+    <span><Icon name="cpu" size={14} /> {model.hardware}</span>
+    <span><Icon name="memory" size={14} /> {memory} memory</span>
+  </div>
 
   {#if s.downloadError?.id === model.id && !downloading}
-    <p class="failed" role="alert">{s.downloadError.text}</p>
+    <p class="failed" role="alert"><Icon name="alert" size={14} /> {s.downloadError.text}</p>
   {/if}
 
   <footer>
     {#if downloading}
       <div class="download">
-        <div class="bar"><span style="width:{Math.max(3, s.progress * 100)}%"></span></div>
+        <div class="bar"><span style="transform: scaleX({Math.max(0.03, s.progress)})"></span></div>
         <div class="download-row">
-          <span>{downloadText(s)}</span>
+          <span>{s.progress >= 0 ? `${percent} % · ` : ""}{downloadText(s)}</span>
           <button class="btn ghost sm" onclick={() => act("cancel")}>Cancel</button>
         </div>
       </div>
     {:else if !model.installed}
-      <button class="btn primary" disabled={busy} onclick={() => act("download", { id: model.id })}>
+      <button class="btn primary wide" disabled={busy} onclick={() => act("download", { id: model.id })}>
         <Icon name="download" size={15} /> Download · {model.downloadMb} MB
       </button>
     {:else if !inUse}
-      <button class="btn secondary" disabled={busy} onclick={() => act("useModel", { id: model.id })}>Use this model</button>
+      <button class="btn secondary wide" disabled={busy} onclick={() => act("useModel", { id: model.id })}>Use this model</button>
     {:else}
-      <span class="ready"><Icon name="check" size={14} stroke={2.4} /> In use</span>
+      <span class="ready"><Icon name="check" size={14} stroke={2.4} /> Ready on this PC</span>
       <button class="btn ghost sm repair" disabled={busy} onclick={() => act("download", { id: model.id })}>Repair</button>
     {/if}
   </footer>
@@ -56,11 +66,13 @@
 
 <style>
   .card {
+    position: relative;
     display: flex;
     flex-direction: column;
+    gap: 14px;
     width: 100%;
-    padding: 18px 18px 16px;
-    border-radius: var(--r-xl);
+    padding: 20px;
+    border-radius: 22px;
     background: var(--surface);
     border: 1px solid var(--border);
     box-shadow: var(--shadow-card);
@@ -77,93 +89,111 @@
     box-shadow: 0 0 0 3px var(--brand-soft);
   }
   .card.featured {
-    padding: 22px;
+    padding: 24px;
   }
   header {
     display: flex;
     align-items: center;
-    flex-wrap: wrap;
-    gap: 12px;
+    gap: 14px;
   }
   .avatar {
     display: grid;
     place-items: center;
-    width: 50px;
-    height: 50px;
+    width: 52px;
+    height: 52px;
     border-radius: 15px;
     flex-shrink: 0;
     background: var(--group);
     border: 1px solid var(--border);
   }
+  .title {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
   h3 {
     margin: 0;
-    font-size: 16px;
-    font-weight: 600;
-    letter-spacing: -0.012em;
+    font-size: 17px;
+    font-weight: 620;
+    letter-spacing: -0.015em;
+  }
+  .sub {
+    margin-top: 1px;
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 24px;
+    padding: 0 10px;
+    border-radius: 999px;
+    background: var(--brand-soft);
+    color: var(--brand);
+    font-size: 11.5px;
+    font-weight: 620;
+    white-space: nowrap;
+    align-self: flex-start;
+  }
+  .badge.live {
+    background: var(--green-soft);
+    color: var(--green-text);
+  }
+  .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    background: var(--green);
+  }
+  .meters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 22px;
   }
   .facts {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
-    margin: 14px 0 0;
   }
-  .facts div {
+  .facts span {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    height: 26px;
-    padding: 0 10px 0 8px;
+    height: 28px;
+    padding: 0 11px 0 9px;
     border-radius: 999px;
     background: var(--group);
     font-size: 12.5px;
+    font-weight: 500;
     color: var(--chip-text);
   }
-  .facts dt {
-    display: grid;
-    color: var(--faint);
-  }
-  .facts dd {
-    margin: 0;
-    font-weight: 500;
-  }
-  .meters {
-    display: flex;
-    gap: 22px;
-    margin-top: 14px;
-  }
-  .meter {
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    font-size: 12.5px;
-    color: var(--muted);
-  }
-  .meter i {
-    width: 64px;
-    height: 5px;
-    border-radius: 999px;
-    background: linear-gradient(90deg, var(--ink) calc(var(--v) * 20%), var(--bar-bg) 0);
-  }
-  .hardware {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-top: 10px;
-    font-size: 12.5px;
+  .facts :global(svg) {
     color: var(--faint);
   }
   .failed {
-    margin-top: 12px;
+    display: flex;
+    gap: 7px;
     font-size: 13px;
     line-height: 1.45;
     color: var(--red);
+  }
+  .failed :global(svg) {
+    flex-shrink: 0;
+    margin-top: 2px;
   }
   footer {
     display: flex;
     align-items: center;
     gap: 8px;
-    min-height: 36px;
-    margin-top: 16px;
+    min-height: 40px;
+    margin-top: auto;
+    padding-top: 2px;
+  }
+  .wide {
+    width: 100%;
+    height: 40px;
   }
   .repair {
     margin-left: auto;
@@ -179,7 +209,7 @@
     width: 100%;
   }
   .bar {
-    height: 6px;
+    height: 7px;
     border-radius: 999px;
     background: var(--bar-bg);
     overflow: hidden;
@@ -187,15 +217,16 @@
   .bar span {
     display: block;
     height: 100%;
-    background: var(--ink);
     border-radius: inherit;
-    transition: width 300ms var(--ease);
+    background: var(--ink);
+    transform-origin: left;
+    transition: transform 300ms var(--ease);
   }
   .download-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-top: 6px;
+    margin-top: 8px;
     font-size: 12.5px;
     color: var(--muted);
     font-variant-numeric: tabular-nums;

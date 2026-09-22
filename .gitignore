@@ -6,6 +6,7 @@
 /ui/dist/
 node_modules/
 /site/.vite/
+/.vite/
 
 # Local files that stay out of the repository
 /.venv

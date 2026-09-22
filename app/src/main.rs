@@ -222,7 +222,7 @@ fn webview2_installed() -> bool {
     found
 }
 
-fn open_url(url: &str) {
+pub fn open_url(url: &str) {
     use windows_sys::Win32::UI::{Shell::ShellExecuteW, WindowsAndMessaging::SW_SHOWNORMAL};
     let wide = |s: &str| s.encode_utf16().chain(Some(0)).collect::<Vec<u16>>();
     unsafe {
@@ -357,7 +357,11 @@ fn setup(
 
     if let Some(main) = app.get_webview_window("main") {
         // Match the first painted frame to the theme so opening never flashes.
-        let dark = matches!(main.theme(), Ok(tauri::Theme::Dark));
+        let dark = match store.settings.theme.as_str() {
+            "dark" => true,
+            "light" => false,
+            _ => matches!(main.theme(), Ok(tauri::Theme::Dark)),
+        };
         let color = if dark { (17, 17, 19) } else { (251, 251, 251) };
         let _ =
             main.set_background_color(Some(tauri::window::Color(color.0, color.1, color.2, 255)));

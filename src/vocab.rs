@@ -62,6 +62,12 @@ fn replace_one(text: &str, from: &[char], to: &str) -> String {
 pub fn whisper_prompt(vocabulary: &[String]) -> String {
     let mut prompt = String::new();
     for word in vocabulary {
+        // Whisper takes the prompt as a C string: no NUL or other control characters.
+        let word: String = word.chars().filter(|c| !c.is_control()).collect();
+        let word = word.trim();
+        if word.is_empty() {
+            continue;
+        }
         if prompt.len() + word.len() > 600 {
             break;
         }

@@ -1,8 +1,8 @@
 <script>
   import { app } from "./api.js";
   // The real program icon when Vorto has seen the app, otherwise a letter tile.
-  let { name = "", size = 28 } = $props();
-  let icon = $derived($app?.appIcons?.[name]);
+  let { name = "", size = 28, src = "" } = $props();
+  let icon = $derived(src || $app?.appIcons?.[name]);
   const palette = ["#ff8a65", "#4f9dff", "#34c38f", "#f5b73b", "#a78bfa", "#f06292", "#26c6da"];
   let tint = $derived(palette[[...name].reduce((h, c) => h + c.charCodeAt(0), 0) % palette.length]);
 </script>

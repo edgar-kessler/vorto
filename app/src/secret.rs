@@ -23,11 +23,16 @@ pub fn read(provider: &str) -> Option<String> {
             return None;
         }
         let credential = &*found;
-        let bytes = std::slice::from_raw_parts(
-            credential.CredentialBlob,
-            credential.CredentialBlobSize as usize,
-        );
-        let key = String::from_utf8(bytes.to_vec()).ok();
+        // An empty credential has no blob at all.
+        let key = if credential.CredentialBlob.is_null() || credential.CredentialBlobSize == 0 {
+            None
+        } else {
+            let bytes = std::slice::from_raw_parts(
+                credential.CredentialBlob,
+                credential.CredentialBlobSize as usize,
+            );
+            String::from_utf8(bytes.to_vec()).ok()
+        };
         CredFree(found as *const _);
         key.filter(|k| !k.is_empty())
     }

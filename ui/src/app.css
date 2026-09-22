@@ -1,4 +1,6 @@
 :root {
+  /* Chart marks: coral, a step that passes on each surface (see the dataviz check). */
+  --chart: #ff6250;
   --bg: #fbfbfb;
   --sidebar: #f5f5f6;
   --surface: #ffffff;
@@ -71,52 +73,52 @@
   color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #111113;
-    --sidebar: #17171a;
-    --surface: #1c1c20;
-    --group: #1a1a1d;
-    --hover: rgba(255, 255, 255, 0.06);
-    --press: rgba(255, 255, 255, 0.1);
-    --border: #26262b;
-    --border-strong: #323238;
-    --text: #f2f2f4;
-    --muted: #9b9ba4;
-    --faint: #6a6a73;
-    --ink: #f4f4f6;
-    --on-ink: #0e0e10;
-    --ink-hover: #ffffff;
-    --brand-soft: #2a1a18;
-    --brand-line: #6b3128;
-    --green-soft: #12281b;
-    --orange-soft: #2c1d12;
-    --red-soft: #2e1519;
-    --control: #242428;
-    --control-hover: #2c2c31;
-    --nav-active: #232327;
-    --nav-text: #c9c9d0;
-    --titlebar-icon: #a8a8b0;
-    --track: #3a3a40;
-    --track-hover: #45454c;
-    --knob: #ffffff;
-    --knob-on: #0e0e10;
-    --bar-bg: #2c2c31;
-    --chip-text: #c2c2ca;
-    --border-hover: #3e3e45;
-    --border-focus: #4a4a52;
-    --glow: #2a1a17;
-    --blue-soft: #14213a;
-    --green-text: #5ad18a;
-    --red-text: #ff8a98;
-    --scrim: rgba(0, 0, 0, 0.5);
-    --toast: #26262b;
-    --toast-border: #34343a;
-    --kbd-shadow: #0b0b0c;
-    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3);
-    --shadow-pop: 0 16px 40px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
-    color-scheme: dark;
-  }
+/* Dark, when Settings or Windows say so (see main.js). */
+:root[data-theme="dark"] {
+  --chart: #f0503c;
+  --bg: #111113;
+  --sidebar: #17171a;
+  --surface: #1c1c20;
+  --group: #1a1a1d;
+  --hover: rgba(255, 255, 255, 0.06);
+  --press: rgba(255, 255, 255, 0.1);
+  --border: #26262b;
+  --border-strong: #323238;
+  --text: #f2f2f4;
+  --muted: #9b9ba4;
+  --faint: #6a6a73;
+  --ink: #f4f4f6;
+  --on-ink: #0e0e10;
+  --ink-hover: #ffffff;
+  --brand-soft: #2a1a18;
+  --brand-line: #6b3128;
+  --green-soft: #12281b;
+  --orange-soft: #2c1d12;
+  --red-soft: #2e1519;
+  --control: #242428;
+  --control-hover: #2c2c31;
+  --nav-active: #232327;
+  --nav-text: #c9c9d0;
+  --titlebar-icon: #a8a8b0;
+  --track: #3a3a40;
+  --track-hover: #45454c;
+  --knob: #ffffff;
+  --knob-on: #0e0e10;
+  --bar-bg: #2c2c31;
+  --chip-text: #c2c2ca;
+  --border-hover: #3e3e45;
+  --border-focus: #4a4a52;
+  --glow: #2a1a17;
+  --blue-soft: #14213a;
+  --green-text: #5ad18a;
+  --red-text: #ff8a98;
+  --scrim: rgba(0, 0, 0, 0.5);
+  --toast: #26262b;
+  --toast-border: #34343a;
+  --kbd-shadow: #0b0b0c;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-pop: 0 16px 40px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
+  color-scheme: dark;
 }
 
 /* The sidebar collapses to its icons on narrow windows. */
@@ -314,9 +316,15 @@ h2 {
 
 /* Grouped settings */
 .group {
+  position: relative;
   background: var(--group);
   border-radius: var(--r-lg);
   padding: 2px 18px;
+}
+/* The group with an open menu stays above the groups after it. */
+.group:focus-within,
+.group:has([aria-expanded="true"]) {
+  z-index: 5;
 }
 .row {
   display: flex;

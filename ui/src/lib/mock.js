@@ -19,17 +19,13 @@ export function startMock({ app, level, route }) {
     phase: "ready", detail: "", progress: -1, downloading: null, downloadError: null,
     recording: hudMode === "listening", recordingSince: Date.now() - Number(params.get("elapsed") ?? 0) * 1000, recordingLimit: 120,
     dictatingHere: false, live: "", dictations: 0,
-    settings: { gpu: true, model: "parakeet-v3", language: "auto", microphone: "", hotkey: [163], toggle: false, live_preview: true, sounds: true, highlight: true, hud_position: "top", onboarded: !params.get("onboarding"), idle_minutes: 0, paste: true, method: "paste", append_space: false, history: params.get("history") !== "off", restore_clipboard: true, overlay: true, auto_update: true, autostart: false,
+    settings: { gpu: true, model: "parakeet-v3", language: "auto", microphone: "", hotkey: [163], toggle: false, live_preview: true, sounds: true, highlight: true, hud_position: "top", onboarded: !params.get("onboarding"), idle_minutes: 0, paste: true, method: "paste", append_space: false, history: params.get("history") !== "off", restore_clipboard: true, overlay: true, auto_update: true, autostart: false, typing_wpm: 40, theme: params.get("theme") ?? "system",
       vocabulary: ["Vorto", "Tauri", "Kessler"], dismissed: [], replacements: [{ from: "new paragraph", to: "\n\n" }],
       shortcuts: { paste_last: [0x11, 0x12, 0x56], undo_last: [], toggle_ai: [], copy_last: [] },
       ai: {
         enabled: true, timeout_secs: 20,
-        providers: [{ id: "ollama", name: "Ollama", kind: "openai", base_url: "http://localhost:11434/v1", model: "qwen2.5:0.5b", allow_remote: false }],
-        profiles: [
-          { id: "email", name: "Email", enabled: true, prompt: "Write this as a polished, polite email body.", provider: "", model: "", apps: ["outlook.exe", "olk.exe"], titles: ["Outlook", "Gmail"] },
-          { id: "prompt", name: "AI prompt", enabled: true, prompt: "Clean up a prompt for an AI assistant.", provider: "", model: "", apps: ["claude.exe"], titles: ["Claude", "ChatGPT"] },
-          { id: "clean", name: "Clean up", enabled: true, prompt: "Fix grammar and remove filler words.", provider: "", model: "", apps: [], titles: [] },
-        ],
+        providers: params.get("ai") === "empty" ? [] : [{ id: "ollama", name: "Ollama", kind: "openai", base_url: "http://localhost:11434/v1", model: "qwen2.5:0.5b", allow_remote: false }],
+        profiles: ["email", "chat", "prompt", "notes", "formal", "clean"].map((id) => ({ id, name: id, enabled: id === "email" || id === "clean", prompt: "", provider: "", model: "", apps: id === "email" ? ["olk.exe"] : [], titles: id === "email" ? ["Gmail"] : [], everywhere: id === "clean" })),
       },
     },
     shortcut: ["Right Ctrl"], capturing: false, hookOk: params.get("hook") !== "0", models,
@@ -46,6 +42,28 @@ export function startMock({ app, level, route }) {
     dataDir: String.raw`C:\Users\you\AppData\Local\app.vorto.desktop`, version: "1.0.0", gpuBuild: true,
     micTest: false, autostart: false, appIcons: {},
     apiKeys: {}, providersLocal: [true], aiModels: {}, aiTest: { id: 0, status: "", text: "", millis: 0 },
+    apps: [
+      { exe: "chrome.exe", name: "Google Chrome", icon: "" }, { exe: "olk.exe", name: "Outlook", icon: "" },
+      { exe: "claude.exe", name: "Claude", icon: "" }, { exe: "slack.exe", name: "Slack", icon: "" }, { exe: "code.exe", name: "Visual Studio Code", icon: "" },
+    ],
+    localAi: null,
+    stats: (() => {
+      const days = {};
+      for (let i = 0; i < 30; i++) {
+        if (i % 7 === 5) continue;
+        const words = Math.round(120 + Math.abs(Math.sin(i * 1.7)) * 900);
+        days[new Date(now.getTime() - i * 86400000).toLocaleDateString("sv-SE")] = { dictations: Math.round(words / 25), words, seconds: words * 0.42 };
+      }
+      return { days, since: "2026-08-24", apps: { "Google Chrome": { dictations: 210, words: 6100, seconds: 2600 }, Outlook: { dictations: 90, words: 4200, seconds: 1750 }, Slack: { dictations: 140, words: 2300, seconds: 990 }, Claude: { dictations: 75, words: 3900, seconds: 1500 }, "Visual Studio Code": { dictations: 30, words: 700, seconds: 320 }, Vorto: { dictations: 12, words: 180, seconds: 75 } } };
+    })(),
+    presets: [
+      { id: "email", name: "Email", about: "A polished email with a greeting, ready for your signature.", instructions: "Write this as a polished, polite email body." },
+      { id: "chat", name: "Chat message", about: "Short and casual, for Slack, Teams or WhatsApp.", instructions: "This is a chat message." },
+      { id: "prompt", name: "AI prompt", about: "A clear, structured prompt for ChatGPT, Claude or Gemini.", instructions: "Clean up a prompt." },
+      { id: "notes", name: "Notes and lists", about: "Tidy notes and bullet points from free speech.", instructions: "Turn this into tidy notes." },
+      { id: "formal", name: "Formal writing", about: "Professional wording for letters, reports and documents.", instructions: "Rewrite in professional language." },
+      { id: "clean", name: "Clean up", about: "Fixes grammar and punctuation, removes filler words.", instructions: "Fix grammar and remove filler words." },
+    ],
     extraShortcuts: [["Ctrl", "Alt", "V"], [], [], []], extraOk: [true, true, true, true], suggestions: ["GitHub", "Parakeet"],
     update: { status: params.get("update") ?? "idle", version: params.get("update") ? "1.1.0" : "", progress: 0.42 },
   };
@@ -117,8 +135,11 @@ export function startMock({ app, level, route }) {
     if (a.type === "checkForUpdates") { s.update = { status: "checking", version: "", progress: -1 }; setTimeout(() => { s.update.status = "latest"; push(); }, 900); }
     if (a.type === "installUpdate") { s.update.status = "installing"; }
     if (a.type === "saveSettings") s.providersLocal = s.settings.ai.providers.map((p) => ["//localhost", "//127."].some((h) => p.base_url.includes(h)));
+    if (a.type === "resetStats") s.stats = { days: {}, apps: {}, since: "" };
+    if (a.type === "resetEverything") { s.settings.onboarded = false; s.history = []; s.stats = { days: {}, apps: {}, since: "" }; }
+    if (a.type === "findLocal") setTimeout(() => { s.localAi = [{ id: "ollama", name: "Ollama", baseUrl: "http://localhost:11434/v1", models: [{ id: "qwen2.5:0.5b", name: "", hint: "" }, { id: "qwen2.5:3b", name: "", hint: "" }] }]; push(); }, 400);
     if (a.type === "setApiKey") s.apiKeys[a.provider] = !!a.key;
-    if (a.type === "listModels") { s.aiModels[a.provider] = { status: "loading", models: [], error: "" }; setTimeout(() => { s.aiModels[a.provider] = { status: "done", models: ["gemma3:1b", "qwen2.5:0.5b", "qwen2.5:3b"], error: "" }; push(); }, 600); }
+    if (a.type === "listModels") { s.aiModels[a.provider] = { status: "loading", models: [], error: "" }; setTimeout(() => { s.aiModels[a.provider] = { status: "done", models: [{ id: "claude-haiku-4-5", name: "Claude Haiku 4.5", hint: "200K · $1.00 / $5.00 per 1M tokens" }, { id: "claude-sonnet-5", name: "Claude Sonnet 5", hint: "1M · $3.00 / $15 per 1M tokens" }, { id: "gemma3:1b", name: "", hint: "" }], error: "" }; push(); }, 600); }
     if (a.type === "testAi") { s.aiTest = { id: s.aiTest.id + 1, status: "running", text: "", millis: 0 }; setTimeout(() => { s.aiTest = { ...s.aiTest, status: "done", text: "Können wir das Meeting morgen auf 10 Uhr verschieben? Danke!", millis: 840 }; push(); }, 900); }
     push();
   };

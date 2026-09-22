@@ -1,6 +1,6 @@
-//! Short feedback sounds, synthesized once at first use: a mechanical key switch going down when
-//! dictation starts and coming back up when it ends, a bright two-note chime when the text is in
-//! place, and softer tones for cancel and errors. No sound files ship with Vorto.
+//! Short feedback sounds, synthesized once at first use, modeled on a clicky (blue) key switch:
+//! it goes down when dictation starts and comes back up when it ends, a quiet tick says the
+//! text is in place, and dull keystrokes mean cancel or error. No tones, no sound files.
 use std::{f32::consts::TAU, sync::OnceLock};
 use windows_sys::Win32::Media::Audio::{PlaySoundW, SND_ASYNC, SND_MEMORY, SND_NODEFAULT};
 
@@ -55,82 +55,99 @@ impl Noise {
     }
 }
 
-/// A switch: the bright click of the contact, the hollow body of the case and the low thock
-/// of the keycap bottoming out. `pitch` > 1 is lighter, like the upstroke.
-fn switch(out: &mut [f32], at: f32, pitch: f32, gain: f32, seed: u32) {
+/// A burst of noise through a band-pass filter: the snap of plastic on plastic. `hz` sets how
+/// bright it is, `decay` how long it rings, in seconds.
+fn burst(out: &mut [f32], at: f32, hz: f32, q: f32, decay: f32, gain: f32, seed: u32) {
+    // RBJ band-pass with 0 dB peak gain.
+    let w = TAU * hz / RATE as f32;
+    let alpha = w.sin() / (2.0 * q);
+    let a0 = 1.0 + alpha;
+    let (b0, b2) = (alpha / a0, -alpha / a0);
+    let (a1, a2) = (-2.0 * w.cos() / a0, (1.0 - alpha) / a0);
+    let (mut x1, mut x2, mut y1, mut y2) = (0.0, 0.0, 0.0, 0.0);
     let mut noise = Noise(seed);
-    let mut hp = 0.0;
-    let mut last = 0.0;
     let start = (at * RATE as f32) as usize;
     for (i, sample) in out.iter_mut().enumerate().skip(start) {
         let x = t(i - start);
-        // Contact: high-passed noise, over in a few milliseconds.
-        let n = noise.next();
-        hp = 0.72 * (hp + n - last);
-        last = n;
-        let contact = hp * (-x / 0.0022).exp();
-        // Case resonance and a second, slightly detuned mode for a plastic, "creamy" color.
-        let body = (TAU * 2350.0 * pitch * x).sin() * (-x / 0.012).exp() * 0.55
-            + (TAU * 3710.0 * pitch * x).sin() * (-x / 0.006).exp() * 0.3;
-        // Bottom-out thock, falling in pitch like a real keycap.
-        let f = 170.0 * pitch * (1.0 + 0.6 * (-x / 0.01).exp());
-        let thock = (TAU * f * x).sin() * (-x / 0.028).exp() * 0.9;
-        *sample += gain * (contact * 0.9 + body * 0.5 + thock * (2.0 - pitch));
-    }
-}
-
-/// A soft sine with a touch of its octave, gliding from `f0` to `f1`.
-fn tone(out: &mut [f32], at: f32, f0: f32, f1: f32, len: f32, gain: f32) {
-    let start = (at * RATE as f32) as usize;
-    let mut phase = 0.0;
-    for (i, sample) in out.iter_mut().enumerate().skip(start) {
-        let x = t(i - start);
-        if x > len * 3.0 {
+        if x > decay * 12.0 {
             break;
         }
-        let k = (x / len).min(1.0);
-        let f = f0 + (f1 - f0) * (1.0 - (1.0 - k).powi(3));
-        phase += TAU * f / RATE as f32;
-        let attack = (x / 0.004).min(1.0);
-        let env = attack * (-x / len).exp();
-        *sample += gain * env * (phase.sin() + 0.18 * (2.0 * phase).sin());
+        let n = noise.next();
+        let y = b0 * n + b2 * x2 - a1 * y1 - a2 * y2;
+        (x2, x1, y2, y1) = (x1, n, y1, y);
+        let attack = (x / 0.00015).min(1.0);
+        *sample += gain * attack * (-x / decay).exp() * y;
     }
 }
 
+/// A damped resonance of the switch housing or keycap.
+fn ring(out: &mut [f32], at: f32, hz: f32, decay: f32, gain: f32) {
+    let start = (at * RATE as f32) as usize;
+    for (i, sample) in out.iter_mut().enumerate().skip(start) {
+        let x = t(i - start);
+        if x > decay * 12.0 {
+            break;
+        }
+        *sample += gain * (TAU * hz * x).sin() * (-x / decay).exp();
+    }
+}
+
+/// Scales a sound so its loudest sample is `peak`.
+fn level(mut out: Vec<f32>, peak: f32) -> Vec<f32> {
+    let max = out.iter().fold(0f32, |m, s| m.max(s.abs())).max(1e-6);
+    for s in &mut out {
+        *s *= peak / max;
+    }
+    out
+}
+
+/// A clicky switch going down: the click jacket snaps, bright and very short, then the stem
+/// bottoms out a moment later with a lower plastic clack.
 fn press() -> Vec<f32> {
-    let mut out = buffer(160);
-    switch(&mut out, 0.0, 1.0, 0.55, 7);
-    // A small rising blip: the microphone is on.
-    tone(&mut out, 0.012, 740.0, 1180.0, 0.045, 0.16);
-    out
+    let mut out = buffer(90);
+    burst(&mut out, 0.0, 4300.0, 1.4, 0.0011, 1.0, 7);
+    burst(&mut out, 0.0, 7600.0, 1.8, 0.0006, 0.45, 13);
+    ring(&mut out, 0.0, 3150.0, 0.0035, 0.18);
+    burst(&mut out, 0.012, 1250.0, 1.0, 0.0028, 0.6, 29);
+    ring(&mut out, 0.012, 540.0, 0.0055, 0.22);
+    ring(&mut out, 0.012, 1900.0, 0.0035, 0.1);
+    level(out, 0.62)
 }
 
+/// The same switch coming back up: a second, lighter click and the soft top-out.
 fn release() -> Vec<f32> {
-    let mut out = buffer(150);
-    switch(&mut out, 0.0, 1.35, 0.42, 11);
-    tone(&mut out, 0.01, 1180.0, 820.0, 0.04, 0.13);
-    out
+    let mut out = buffer(80);
+    burst(&mut out, 0.0, 4900.0, 1.4, 0.0009, 1.0, 11);
+    ring(&mut out, 0.0, 3400.0, 0.003, 0.14);
+    burst(&mut out, 0.007, 1700.0, 1.0, 0.0022, 0.4, 31);
+    ring(&mut out, 0.007, 720.0, 0.0045, 0.14);
+    level(out, 0.45)
 }
 
+/// The text is in place: one quiet tick, no melody.
 fn done() -> Vec<f32> {
-    let mut out = buffer(420);
-    // A major sixth, bright and short: "there it is".
-    tone(&mut out, 0.0, 1318.5, 1318.5, 0.07, 0.2);
-    tone(&mut out, 0.075, 2217.5, 2217.5, 0.11, 0.17);
-    out
+    let mut out = buffer(60);
+    burst(&mut out, 0.0, 3900.0, 1.3, 0.0008, 1.0, 17);
+    ring(&mut out, 0.0, 950.0, 0.0035, 0.12);
+    level(out, 0.22)
 }
 
+/// Discarded: a dull keystroke without the click.
 fn cancel() -> Vec<f32> {
-    let mut out = buffer(220);
-    tone(&mut out, 0.0, 520.0, 300.0, 0.06, 0.2);
-    out
+    let mut out = buffer(90);
+    burst(&mut out, 0.0, 950.0, 0.9, 0.004, 1.0, 19);
+    ring(&mut out, 0.0, 330.0, 0.009, 0.35);
+    level(out, 0.4)
 }
 
+/// Something went wrong: two dull keystrokes.
 fn error() -> Vec<f32> {
-    let mut out = buffer(380);
-    tone(&mut out, 0.0, 392.0, 392.0, 0.06, 0.2);
-    tone(&mut out, 0.11, 311.1, 311.1, 0.09, 0.2);
-    out
+    let mut out = buffer(190);
+    for (at, seed) in [(0.0, 23), (0.085, 37)] {
+        burst(&mut out, at, 900.0, 0.9, 0.004, 1.0, seed);
+        ring(&mut out, at, 310.0, 0.009, 0.35);
+    }
+    level(out, 0.42)
 }
 
 /// 16-bit mono PCM in a RIFF container, with a short fade so nothing ends in a click.
@@ -177,6 +194,24 @@ mod tests {
             assert_eq!(bytes.len(), 44 + samples.len() * 2);
             let peak = samples.iter().fold(0f32, |m, s| m.max(s.abs()));
             assert!(peak > 0.05 && peak < 1.0, "peak {peak}");
+        }
+    }
+
+    /// Writes the sounds as WAV files to listen to:
+    /// `VORTO_SOUND_DIR=<folder> cargo test -p vorto-app -- --ignored write_sounds`
+    #[test]
+    #[ignore]
+    fn write_sounds() {
+        let dir =
+            std::path::PathBuf::from(std::env::var("VORTO_SOUND_DIR").expect("VORTO_SOUND_DIR"));
+        for (name, samples) in [
+            ("press", press()),
+            ("release", release()),
+            ("done", done()),
+            ("cancel", cancel()),
+            ("error", error()),
+        ] {
+            std::fs::write(dir.join(format!("{name}.wav")), wav(&samples)).unwrap();
         }
     }
 }

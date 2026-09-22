@@ -3,23 +3,27 @@
   // Moods: idle, listening, thinking, happy, sleep, worried.
   let { size = 48, mood = "idle", level = 0, onDark = false, tile = false } = $props();
 
-  // Five bars read well from 40px up; below that three thicker ones stay sharp.
+  // Five bars at every size, like the app icon. Small marks get slightly wider ones so they
+  // stay sharp.
+  // Slim bars, centered where the wider ones were: 42, 51, 60, 69 and 78.
   const full = [
-    [38.5, 12],
-    [47.5, 22],
-    [56.5, 32],
-    [65.5, 22],
-    [74.5, 12],
+    [39.25, 12],
+    [48.25, 22],
+    [57.25, 32],
+    [66.25, 22],
+    [75.25, 12],
   ];
   const small = [
-    [40, 16],
-    [54.5, 30],
-    [69, 16],
+    [34, 14],
+    [45.5, 26],
+    [57, 36],
+    [68.5, 26],
+    [80, 14],
   ];
   let l = $derived(Math.min(1, Math.max(0, level)));
   let simple = $derived(size < 40);
   let bars = $derived(simple ? small : full);
-  let w = $derived(simple ? 11 : 7);
+  let w = $derived(simple ? 6 : 5.5);
 </script>
 
 <svg

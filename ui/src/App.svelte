@@ -1,7 +1,7 @@
 <script>
   import { onMount } from "svelte";
   import { fly, scale } from "svelte/transition";
-  import { app, route, act, connect, windowControl, startsHidden, isTauri } from "./lib/api.js";
+  import { app, route, act, connect, windowControl, startsHidden, isTauri, applyTheme } from "./lib/api.js";
   import Icon from "./lib/Icon.svelte";
   import Mark from "./lib/Mark.svelte";
   import Toast from "./lib/Toast.svelte";
@@ -12,12 +12,14 @@
   import Onboarding from "./pages/Onboarding.svelte";
   import Dictionary from "./pages/Dictionary.svelte";
   import Ai from "./pages/Ai.svelte";
+  import Stats from "./pages/Stats.svelte";
 
   const nav = [
     { id: "home", label: "Dictate", icon: "dictate" },
     { id: "history", label: "History", icon: "history" },
+    { id: "stats", label: "Stats", icon: "chart" },
     { id: "dictionary", label: "Dictionary", icon: "book" },
-    { id: "ai", label: "AI editing", icon: "sparkles" },
+    { id: "ai", label: "AI editing", icon: "pen" },
     { id: "models", label: "Voice models", icon: "models" },
     { id: "settings", label: "Settings", icon: "settings" },
   ];
@@ -41,6 +43,9 @@
   });
 
   let s = $derived($app);
+  $effect(() => {
+    if (s?.settings?.theme) applyTheme(s.settings.theme);
+  });
   // Dictation can't work. The Dictate page says why; elsewhere a dot points there.
   let attention = $derived(!!s && $route !== "home" && (s.phase === "error" || (!s.hookOk && $route !== "settings")));
 
@@ -61,6 +66,8 @@
       <span class="collapsible">Vorto</span>
     </div>
     <nav>
+      <!-- One highlight that slides to the page you open. -->
+      <span class="indicator" aria-hidden="true" style="transform: translateY({Math.max(0, nav.findIndex((n) => n.id === $route)) * 40}px)"></span>
       {#each nav as item}
         <button
           class="nav-item"
@@ -104,12 +111,13 @@
     <div class="scroll" bind:this={scroller}>
       {#if s}
         {#key $route}
-          <div class="page" in:fly={{ y: 10, duration: 280, delay: 40 }}>
+          <div class="page" in:fly={{ y: 6, duration: 200 }}>
             {#if $route === "home"}<Home />
             {:else if $route === "models"}<Models />
             {:else if $route === "history"}<History />
             {:else if $route === "dictionary"}<Dictionary />
             {:else if $route === "ai"}<Ai />
+            {:else if $route === "stats"}<Stats />
             {:else}<Settings />{/if}
           </div>
         {/key}
@@ -124,6 +132,8 @@
 
 <style>
   .shell {
+    position: relative;
+    z-index: 1;
     display: flex;
     height: 100%;
     opacity: 0;
@@ -166,9 +176,21 @@
     pointer-events: none;
   }
   nav {
+    position: relative;
     display: flex;
     flex-direction: column;
     gap: 2px;
+  }
+  .indicator {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 38px;
+    border-radius: 10px;
+    background: var(--nav-active);
+    transition: transform 280ms var(--ease);
+    pointer-events: none;
   }
   .nav-item {
     position: relative;
@@ -193,8 +215,9 @@
   .nav-item:hover {
     background: var(--hover);
   }
-  .nav-item.active {
-    background: var(--nav-active);
+  .nav-item.active,
+  .nav-item.active:hover {
+    background: none;
     color: var(--text);
     font-weight: 560;
   }
@@ -255,6 +278,8 @@
   .scroll {
     flex: 1;
     overflow-y: auto;
+    /* The scrollbar coming and going between pages doesn't shift the content sideways. */
+    scrollbar-gutter: stable;
     overflow-x: hidden;
   }
   .page {

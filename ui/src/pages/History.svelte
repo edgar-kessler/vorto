@@ -1,9 +1,10 @@
 <script>
   import { app, act, saveSettings } from "../lib/api.js";
   import Icon from "../lib/Icon.svelte";
+  import Segmented from "../lib/Segmented.svelte";
   import Mark from "../lib/Mark.svelte";
   import AppIcon from "../lib/AppIcon.svelte";
-  import { fade, scale } from "svelte/transition";
+  import { fade, scale, slide } from "svelte/transition";
 
   let s = $derived($app);
   let query = $state("");
@@ -18,6 +19,41 @@
     const day = new Date(`${date}T12:00:00`);
     const year = day.getFullYear() !== today.getFullYear() ? { year: "numeric" } : {};
     return day.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", ...year });
+  };
+  // By app (newest app first) or by day. The choice is remembered on this PC.
+  const remembered = () => {
+    try {
+      return localStorage.getItem("vorto.history.by");
+    } catch {
+      return null;
+    }
+  };
+  let by = $state(remembered() ?? "app");
+  $effect(() => {
+    try {
+      localStorage.setItem("vorto.history.by", by);
+    } catch {}
+  });
+  let byApp = $derived.by(() => {
+    const q = query.trim().toLowerCase();
+    const found = new Map();
+    for (const entry of s.history) {
+      if (q && !entry.text.toLowerCase().includes(q)) continue;
+      const name = entry.app || "";
+      if (!found.has(name)) found.set(name, []);
+      found.get(name).push(entry);
+    }
+    return [...found].map(([app, items]) => ({ app, items }));
+  });
+  let collapsed = $state(new Set());
+  function fold(app) {
+    const next = new Set(collapsed);
+    next.has(app) ? next.delete(app) : next.add(app);
+    collapsed = next;
+  }
+  const when = (at) => {
+    const [date, time] = at.split(" ");
+    return `${label(date)}, ${time}`;
   };
   let groups = $derived.by(() => {
     const q = query.trim().toLowerCase();
@@ -60,6 +96,10 @@
 <header class="page-head">
   <h1>History</h1>
   {#if s.history.length}
+    <span class="grow"></span>
+    <Segmented label="Group History by" value={by} options={[{ value: "app", label: "Apps" }, { value: "day", label: "Days" }]} onchange={(v) => (by = v)} />
+  {/if}
+  {#if s.history.length}
     <button class="btn ghost sm" bind:this={clearButton} onclick={() => (confirm = true)}><Icon name="trash" size={15} /> Clear</button>
   {/if}
 </header>
@@ -91,6 +131,40 @@
     <p class="muted">No matches</p>
   </div>
 {:else}
+  {#if by === "app"}
+    {#each byApp as group, gi (group.app)}
+      <button class="app-head" aria-expanded={!collapsed.has(group.app)} onclick={() => fold(group.app)}>
+        <AppIcon name={group.app} size={26} />
+        <span class="app-title">{group.app || "Kept in Vorto"}</span>
+        <span class="count">{group.items.length}</span>
+        <span class="chev" class:turned={!collapsed.has(group.app)}><Icon name="chevron" size={15} /></span>
+      </button>
+      {#if !collapsed.has(group.app)}
+        <div class="list" transition:slide={{ duration: 200 }}>
+          {#each group.items as entry, i (i)}
+            <div class="entry-wrap">
+              <button class="entry compact" onclick={() => copy(entry, `a${gi}:${i}`)}>
+                <span class="body">
+                  <span class="text">{entry.text}</span>
+                  <span class="meta">{when(entry.at)}{entry.raw ? " · Edited by AI" : ""}</span>
+                </span>
+                <span class="action">
+                  {#if copied === `a${gi}:${i}`}
+                    <span class="done" in:scale={{ duration: 160, start: 0.8 }}><Icon name="check" size={15} stroke={2.2} /></span>
+                  {:else}
+                    <Icon name="copy" size={15} />
+                  {/if}
+                </span>
+              </button>
+              {#if entry.raw}
+                <button class="original" onclick={() => copy(entry, `a${gi}:${i}`, entry.raw)} title={entry.raw}>Copy as spoken</button>
+              {/if}
+            </div>
+          {/each}
+        </div>
+      {/if}
+    {/each}
+  {:else}
   {#each groups as group, gi (gi)}
     <h3 class="section-title">{label(group.date)}</h3>
     <div class="list">
@@ -117,6 +191,7 @@
       {/each}
     </div>
   {/each}
+  {/if}
 {/if}
 
 <!-- The check icon confirms a copy on screen; this says it to screen readers. -->
@@ -180,6 +255,57 @@
     padding: 4px;
     border-radius: var(--r-lg);
     background: var(--group);
+  }
+  .grow {
+    flex: 1;
+  }
+  .page-head :global(.segmented) {
+    margin-right: 4px;
+  }
+  .app-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    margin: 18px 0 8px;
+    padding: 4px 6px 4px 4px;
+    border-radius: 10px;
+    text-align: left;
+  }
+  .app-head:first-of-type {
+    margin-top: 0;
+  }
+  .app-head:hover {
+    background: var(--hover);
+  }
+  .app-title {
+    font-size: 14px;
+    font-weight: 560;
+  }
+  .count {
+    min-width: 22px;
+    height: 20px;
+    padding: 0 7px;
+    border-radius: 999px;
+    background: var(--control);
+    font-size: 11.5px;
+    font-weight: 560;
+    color: var(--muted);
+    display: grid;
+    place-items: center;
+  }
+  .chev {
+    display: grid;
+    margin-left: auto;
+    color: var(--faint);
+    transform: rotate(-90deg);
+    transition: transform 220ms var(--ease);
+  }
+  .chev.turned {
+    transform: none;
+  }
+  .entry.compact {
+    padding-left: 14px;
   }
   .entry-wrap {
     position: relative;

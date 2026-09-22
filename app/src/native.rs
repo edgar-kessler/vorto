@@ -229,6 +229,24 @@ fn file_description(path: &str) -> Option<String> {
     }
 }
 
+/// The full path of the program behind a window.
+pub fn program_path(hwnd: HWND) -> Option<String> {
+    exe_path(hwnd)
+}
+
+/// The program's icon as a PNG data URL, or empty; cached per path.
+pub fn icon_for(path: &str) -> String {
+    static ICONS: Mutex<Option<HashMap<String, String>>> = Mutex::new(None);
+    let Ok(mut cache) = ICONS.lock() else {
+        return String::new();
+    };
+    cache
+        .get_or_insert_with(HashMap::new)
+        .entry(path.to_string())
+        .or_insert_with(|| icon_data_url(path).unwrap_or_default())
+        .clone()
+}
+
 fn icon_data_url(path: &str) -> Option<String> {
     unsafe {
         let path = wide(path);
@@ -571,9 +589,20 @@ fn focus(hwnd: HWND) {
 
 pub fn type_text(text: &str) {
     let mut inputs = Vec::new();
-    for unit in text.encode_utf16() {
-        inputs.push(key(0, unit, KEYEVENTF_UNICODE));
-        inputs.push(key(0, unit, KEYEVENTF_UNICODE | KEYEVENTF_KEYUP));
+    let enter_scan = unsafe { MapVirtualKeyW(0x0D, 0) } as u16;
+    let shift_scan = unsafe { MapVirtualKeyW(0xA0, 0) } as u16;
+    for (i, line) in text.replace("\r\n", "\n").split('\n').enumerate() {
+        // A line break is Shift+Enter: plain Enter would send the message in chat apps.
+        if i > 0 {
+            inputs.push(key(0xA0, shift_scan, 0));
+            inputs.push(key(0x0D, enter_scan, 0));
+            inputs.push(key(0x0D, enter_scan, KEYEVENTF_KEYUP));
+            inputs.push(key(0xA0, shift_scan, KEYEVENTF_KEYUP));
+        }
+        for unit in line.encode_utf16() {
+            inputs.push(key(0, unit, KEYEVENTF_UNICODE));
+            inputs.push(key(0, unit, KEYEVENTF_UNICODE | KEYEVENTF_KEYUP));
+        }
     }
     for chunk in inputs.chunks(200) {
         send(chunk);
@@ -826,8 +855,11 @@ pub fn set_clipboard_private(text: &str) -> bool {
 }
 fn write_clipboard(text: &str, private: bool) -> bool {
     unsafe {
+        // Windows apps expect CR LF between lines on the clipboard; a bare LF shows as nothing
+        // in some of them.
+        let text = text.replace("\r\n", "\n").replace('\n', "\r\n");
         // Prepare the data before emptying the clipboard, so a failure leaves it as it was.
-        let handle = global_copy(&wide(text));
+        let handle = global_copy(&wide(&text));
         if handle.is_null() {
             return false;
         }

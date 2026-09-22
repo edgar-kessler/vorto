@@ -36,7 +36,7 @@ Vorto writes it down right where you were typing.
 - **Your shortcut, your way.** Any key or key combination, even a single key like Menu. Hold to talk, or press once to start and again to finish. <kbd>Esc</kbd> cancels.
 - **The right voice model for your PC.** Parakeet v3 for 25 European languages on any modern processor, or Whisper for 99 languages.
 - **Your words, your spelling.** A dictionary for names and terms, and replacements such as "new paragraph" for a line break.
-- **AI editing, if you want it.** A language model cleans up each dictation in the style that fits the app: a polite email in Outlook, a clear prompt in Claude or ChatGPT. It runs on your PC with Ollama or LM Studio, or with a provider you choose.
+- **AI editing, if you want it.** A language model rewrites each dictation the way you describe for that app, say a polite email in Outlook or a clear prompt in Claude. It runs on your PC with Ollama or LM Studio, or with a provider you choose.
 - **History.** Your last 100 dictations, ready to copy or paste again. Or none, if you turn it off.
 - **Quiet until you need it.** Vorto waits in the tray, can start with Windows, follows light and dark mode and keeps itself up to date.
 
@@ -131,12 +131,17 @@ Add names and terms under **Dictionary**, such as your company or a colleague's 
 
 Turn on **AI editing** and a language model polishes each dictation before Vorto inserts it. Meanwhile the pill says **Polishing**; press <kbd>Esc</kbd> to insert your words as spoken instead. If the model takes too long or fails, Vorto inserts them as spoken too.
 
-- **Styles** decide what happens, by app or window title: **Email** for Outlook, Gmail and Thunderbird, **AI prompt** for Claude, ChatGPT and Gemini, **Chat** for Slack, Teams, WhatsApp and Discord, and **Clean up** everywhere else. Change their instructions or add your own. Window titles work for websites, since browsers show the page title.
-- **Providers:** [Ollama](https://ollama.com) or LM Studio on your PC, or OpenAI, Anthropic, Google Gemini, Groq, Mistral, OpenRouter, DeepSeek, xAI, Together AI and any other OpenAI-compatible address. **Load models** lists what a provider offers.
+- **Presets** say what happens: **Email**, **Chat message**, **AI prompt**, **Notes and lists**, **Formal writing** and **Clean up**. Turn on the ones you want and pick their apps from every app you've dictated into, with its icon. For websites, add a word from the browser tab's title, such as Gmail. One preset can also cover every app no other preset is for, and you can add your own wishes to any of them.
+- **Layout by voice:** say "new line", "three lines, the first says …" or "as bullet points", and AI editing lays the text out that way. Line breaks arrive as real line breaks, typed as Shift+Enter so chat apps don't send early.
+- **Providers:** [Ollama](https://ollama.com) or LM Studio on your PC, which Vorto finds on its own, or OpenAI, Anthropic, Google Gemini, Groq, Mistral, OpenRouter, DeepSeek, xAI, Together AI and any other OpenAI-compatible address. Pick one, paste your key and choose a model from the list the provider sends, with names, context sizes and prices from OpenRouter's public catalog where known. You can also type any model ID.
 - API keys are kept in Windows Credential Manager, not in Vorto's settings file.
-- **Try it** runs a style on sample text, so you can compare models before you dictate.
+- **Try it** runs a preset on sample text, so you can compare models before you dictate. The default provider is marked; presets use its model unless you pick another.
 
 Small local models are fast but make mistakes. Models from about 3 billion parameters, such as `qwen2.5:3b` or `gemma3:4b` in Ollama, follow the instructions much more reliably. Vorto loads a local model while you speak, so it's ready when you let go.
+
+### Stats
+
+**Stats** shows how much time dictation saved you compared with typing at your own speed, words and dictations, time saved on each of the last 30 days and how long you've spoken into each app. It keeps only numbers, never text, and counts even with History off.
 
 ### The tray and more shortcuts
 
@@ -146,9 +151,9 @@ Under **Settings → More shortcuts** you can set key combinations to paste your
 
 ### History and settings
 
-**History** keeps your last 100 dictations on your PC, with the app each one went into, ready to copy again. When AI editing changed a dictation, **Copy as spoken** gives you your original words. Turn off **Save history** in Settings to keep nothing.
+**History** keeps your last 100 dictations on your PC, grouped by the app each one went into or by day, ready to copy again. When AI editing changed a dictation, **Copy as spoken** gives you your original words. Turn off **Save history** in Settings to keep nothing.
 
-**Settings** also covers the microphone, the language, starting with Windows, whether the model stays loaded, and updates. Closing the window keeps Vorto in the tray. To quit, choose **Quit Vorto** from the tray icon's menu.
+**Settings** also covers light or dark appearance (or following Windows), the microphone, the language, starting with Windows, whether the model stays loaded, and updates. **Reset everything** deletes your settings, dictionary, AI editing setup, API keys, History and Stats and starts the setup again; downloaded voice models stay. Closing the window keeps Vorto in the tray. To quit, choose **Quit Vorto** from the tray icon's menu.
 
 ## Privacy
 
@@ -157,7 +162,7 @@ Vorto listens, recognizes and inserts text on your PC. Your voice never leaves i
 - There's no account and no telemetry.
 - The microphone is off unless you're dictating or testing it in Settings.
 - Vorto uses the network for two things: downloading voice models from Hugging Face, and checking GitHub Releases for updates. Model files are pinned to a fixed commit and checked by size and SHA-256 before they're used.
-- AI editing is off until you turn it on. With Ollama or LM Studio it stays on your PC. An online provider receives the text of your dictations, never the audio, and only after you allow it for that provider.
+- AI editing is off until you turn it on. With Ollama or LM Studio it stays on your PC. An online provider receives the text of your dictations, never the audio, and only after you allow it for that provider. Loading the model list of an online provider also reads OpenRouter's public model catalog, for names and prices; that sends no text and no key.
 - Recordings reach the voice engine as temporary files that Windows deletes as soon as they're closed, even if Vorto is ended.
 - Logs are for diagnostics only. They never contain what you said.
 

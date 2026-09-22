@@ -1,6 +1,6 @@
 <script>
-  import { app, level, act, normalizeLevel, saveSettings } from "../lib/api.js";
-  import { slide } from "svelte/transition";
+  import { app, level, act, normalizeLevel, saveSettings, forgetEdits } from "../lib/api.js";
+  import { slide, fade, scale } from "svelte/transition";
   import Toggle from "../lib/Toggle.svelte";
   import Select from "../lib/Select.svelte";
   import Segmented from "../lib/Segmented.svelte";
@@ -57,6 +57,16 @@
     [30, "30 minutes"],
   ].map(([value, label]) => ({ value, label }));
   let microphones = $derived([{ value: "", label: "Windows default" }, ...s.microphones.map((m) => ({ value: m, label: m }))]);
+  // More shortcuts stay folded until opened, or while one of them needs attention.
+  let shortcutsOpen = $state(false);
+  let setCount = $derived(extras.filter(([key]) => settings.shortcuts[key]?.length).length);
+  let shortcutProblem = $derived(s.extraOk.some((ok) => !ok));
+  let confirmReset = $state(false);
+  function resetEverything() {
+    confirmReset = false;
+    forgetEdits();
+    act("resetEverything");
+  }
 </script>
 
 <header class="page-head">
@@ -93,6 +103,24 @@
   </div>
   <div class="row">
     <div class="label">
+      <strong>Appearance</strong>
+      <span>{settings.theme === "system" ? "Follows Windows." : settings.theme === "light" ? "Always light." : "Always dark."}</span>
+    </div>
+    <div class="control">
+      <Segmented
+        label="Appearance"
+        value={settings.theme}
+        options={[
+          { value: "system", label: "System" },
+          { value: "light", label: "Light" },
+          { value: "dark", label: "Dark" },
+        ]}
+        onchange={(v) => set("theme", v)}
+      />
+    </div>
+  </div>
+  <div class="row">
+    <div class="label">
       <strong>Start with Windows</strong>
       <span>Your shortcut works right after sign-in.</span>
     </div>
@@ -102,6 +130,15 @@
 
 <h3 class="section-title">More shortcuts</h3>
 <div class="group">
+  <button class="row fold" aria-expanded={shortcutsOpen || shortcutProblem} onclick={() => (shortcutsOpen = !shortcutsOpen)}>
+    <div class="label">
+      <strong>Paste, undo, copy and AI editing</strong>
+      <span>{setCount ? `${setCount} of ${extras.length} set` : "None set yet. Open to add key combinations."}</span>
+    </div>
+    <div class="control"><span class="chev" class:turned={shortcutsOpen || shortcutProblem}><Icon name="chevron" size={16} /></span></div>
+  </button>
+  {#if shortcutsOpen || shortcutProblem}
+  <div transition:slide={{ duration: 240 }}>
   {#each extras as [key, title, text], i}
     <div class="row">
       <div class="label">
@@ -117,6 +154,8 @@
       </div>
     </div>
   {/each}
+  </div>
+  {/if}
 </div>
 
 <h3 class="section-title">Recognition</h3>
@@ -312,9 +351,91 @@
       <span>Closing the window keeps your shortcut working. Quit from the tray icon.</span>
     </div>
   </div>
+  <div class="row">
+    <div class="label">
+      <strong>Reset everything</strong>
+      <span>Deletes your settings, dictionary, AI editing, API keys, History and Stats, and starts the setup again. Downloaded voice models stay.</span>
+    </div>
+    <div class="control">
+      <button class="btn secondary sm danger-hover" disabled={s.recording} onclick={() => (confirmReset = true)}><Icon name="trash" size={15} /> Reset</button>
+    </div>
+  </div>
 </div>
 
+{#if confirmReset}
+  <div class="scrim" transition:fade={{ duration: 160 }} onclick={() => (confirmReset = false)} role="presentation">
+    <div class="dialog" transition:scale={{ duration: 220, start: 0.95, opacity: 0 }} onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.key === "Escape" && (confirmReset = false)} role="dialog" aria-modal="true" aria-labelledby="reset-all-title" tabindex="-1">
+      <div class="dialog-icon"><Icon name="trash" size={20} /></div>
+      <h2 id="reset-all-title">Reset Vorto?</h2>
+      <p class="muted">This deletes your settings, dictionary, AI editing setup and API keys, {s.history.length} {s.history.length === 1 ? "dictation" : "dictations"} in History and your Stats. It can't be undone. Downloaded voice models stay.</p>
+      <div class="dialog-actions">
+        <button class="btn secondary" {@attach (node) => node.focus()} onclick={() => (confirmReset = false)}>Cancel</button>
+        <button class="btn danger" onclick={resetEverything}>Reset everything</button>
+      </div>
+    </div>
+  </div>
+{/if}
+
 <style>
+  .fold {
+    width: 100%;
+    text-align: left;
+  }
+  .chev {
+    display: grid;
+    color: var(--faint);
+    transition: transform 240ms var(--ease);
+  }
+  .chev.turned {
+    transform: rotate(180deg);
+  }
+  /* The folded rows sit in their own block: keep the hairline between them. */
+  .group > div > .row {
+    border-top: 1px solid var(--border);
+  }
+  .danger-hover:hover {
+    background: var(--red);
+    color: #fff;
+  }
+  .scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 80;
+    display: grid;
+    place-items: center;
+    background: var(--scrim);
+    backdrop-filter: blur(6px);
+  }
+  .dialog {
+    width: 400px;
+    padding: 24px;
+    border-radius: 20px;
+    background: var(--surface);
+    box-shadow:
+      var(--shadow-pop),
+      0 0 0 1px var(--border);
+  }
+  .dialog-icon {
+    display: grid;
+    place-items: center;
+    width: 42px;
+    height: 42px;
+    margin-bottom: 14px;
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--red) 14%, transparent);
+    color: var(--red);
+  }
+  .dialog p {
+    margin-top: 8px;
+    font-size: 13.5px;
+    line-height: 1.55;
+  }
+  .dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 22px;
+  }
   /* Beats the global `.row .label span` muted colour. */
   .label .fail {
     color: var(--red);

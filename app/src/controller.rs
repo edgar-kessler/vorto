@@ -87,6 +87,20 @@ pub enum Action {
     CopyLast,
     UndoLast,
     ToggleAi,
+    /// Looks for Ollama and LM Studio on this PC.
+    FindLocal,
+    ResetStats,
+    /// Deletes settings, the dictionary, AI editing, API keys, History, Stats and the app list,
+    /// and starts the onboarding again. Downloaded voice models stay.
+    ResetEverything,
+    /// Opens a provider's web page, for example where to create an API key.
+    OpenUrl {
+        url: String,
+    },
+    /// Forgets a program in the list of apps dictated into.
+    ForgetApp {
+        exe: String,
+    },
 }
 
 impl Action {
@@ -118,6 +132,11 @@ impl Action {
             Action::CopyLast => "copyLast",
             Action::UndoLast => "undoLast",
             Action::ToggleAi => "toggleAi",
+            Action::FindLocal => "findLocal",
+            Action::ResetStats => "resetStats",
+            Action::ResetEverything => "resetEverything",
+            Action::OpenUrl { .. } => "openUrl",
+            Action::ForgetApp { .. } => "forgetApp",
         }
     }
 }
@@ -138,7 +157,7 @@ pub enum Msg {
     },
     Models {
         provider: String,
-        result: Result<Vec<String>, String>,
+        result: Result<Vec<ai::ModelInfo>, String>,
     },
     Tested {
         id: u64,
@@ -146,6 +165,8 @@ pub enum Msg {
     },
     /// A tray menu item that needs the controller.
     Tray(String),
+    /// Local AI servers found on this PC.
+    FoundLocal(Vec<(vorto::data::AiProvider, Vec<ai::ModelInfo>)>),
     /// Where inserted text landed on screen, for the highlight.
     Landed(Vec<crate::caret::Rect>),
     /// Audio prepared while recording, with the dictation it was prepared for.
@@ -174,12 +195,10 @@ pub fn get_state(handle: tauri::State<Handle>, window: tauri::WebviewWindow) -> 
     let json = handle
         .published
         .lock()
-        .map(|p| {
-            if window.label() == "hud" {
-                p.hud.clone()
-            } else {
-                p.main.clone()
-            }
+        .map(|p| match window.label() {
+            "hud" => p.hud.clone(),
+            "main" => p.main.clone(),
+            _ => "null".to_string(),
         })
         .unwrap_or_default();
     RawValue::from_string(json)
@@ -252,13 +271,41 @@ struct Snapshot<'a> {
     extra_shortcuts: Vec<Vec<String>>,
     extra_ok: [bool; 4],
     suggestions: &'a [String],
+    /// Programs dictated into, newest first, with their icons.
+    apps: Vec<AppView<'a>>,
+    stats: &'a vorto::data::Stats,
+    /// The AI editing presets: what each one does.
+    presets: Vec<PresetView>,
+    /// Ollama or LM Studio running on this PC; None until looked for.
+    local_ai: Option<&'a [LocalAi]>,
 }
 
+#[derive(Serialize)]
+struct PresetView {
+    id: &'static str,
+    name: &'static str,
+    about: &'static str,
+    instructions: &'static str,
+}
+#[derive(Serialize)]
+struct AppView<'a> {
+    exe: &'a str,
+    name: &'a str,
+    icon: String,
+}
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct LocalAi {
+    id: String,
+    name: String,
+    base_url: String,
+    models: Vec<ai::ModelInfo>,
+}
 #[derive(Serialize, Clone, Default)]
 struct ModelList {
     /// loading, done or error
     status: &'static str,
-    models: Vec<String>,
+    models: Vec<ai::ModelInfo>,
     error: String,
 }
 #[derive(Serialize, Clone, Default)]
@@ -497,6 +544,10 @@ pub struct Controller {
     suggestions_for: (usize, String, usize, usize),
     /// What the tray menu shows, so it's rebuilt only when that changes.
     tray_shows: String,
+    /// The dictations the tray menu lists, in its order, so a click pastes what it showed.
+    tray_recent: Vec<String>,
+    /// Ollama or LM Studio found on this PC, once looked for.
+    local_ai: Option<Vec<LocalAi>>,
     /// The window that glows over inserted text, and when it goes away.
     flash: isize,
     flash_hide_at: Option<Instant>,
@@ -597,6 +648,8 @@ impl Controller {
             suggestions: Vec::new(),
             suggestions_for: (usize::MAX, String::new(), 0, 0),
             tray_shows: String::new(),
+            tray_recent: Vec::new(),
+            local_ai: None,
             flash,
             flash_hide_at: None,
         };
@@ -858,6 +911,19 @@ impl Controller {
                     };
                 }
             }
+            Msg::FoundLocal(found) => {
+                self.local_ai = Some(
+                    found
+                        .into_iter()
+                        .map(|(p, models)| LocalAi {
+                            id: p.id,
+                            name: p.name,
+                            base_url: p.base_url,
+                            models,
+                        })
+                        .collect(),
+                );
+            }
             Msg::Tray(id) => {
                 let hwnd = self.paste_target;
                 match id.as_str() {
@@ -866,12 +932,12 @@ impl Controller {
                     "ai" => self.act(Action::ToggleAi),
                     "check_updates" => self.act(Action::CheckForUpdates),
                     _ => {
-                        if let Some(entry) = id
+                        if let Some(text) = id
                             .strip_prefix("recent:")
                             .and_then(|i| i.parse::<usize>().ok())
-                            .and_then(|i| self.store.history.get(i))
+                            .and_then(|i| self.tray_recent.get(i))
                         {
-                            let text = entry.text.clone();
+                            let text = text.clone();
                             self.paste_again(text, hwnd);
                         }
                     }
@@ -1172,6 +1238,32 @@ impl Controller {
                 }
             }
             Action::UndoLast => self.undo_last(),
+            Action::ResetEverything => self.reset_everything(),
+            Action::ResetStats => {
+                if let Err(e) = self.store.reset_stats() {
+                    self.say("error", format!("Stats couldn't be reset: {e}"));
+                }
+            }
+            Action::FindLocal => {
+                let tx = self.tx.clone();
+                std::thread::spawn(move || {
+                    let _ = tx.send(Msg::FoundLocal(ai::find_local()));
+                });
+            }
+            Action::OpenUrl { url } => {
+                // Only web pages: the page can't make Vorto start programs.
+                if url.starts_with("https://") && !url.contains(char::is_whitespace) {
+                    crate::open_url(&url);
+                }
+            }
+            Action::ForgetApp { exe } => {
+                self.store.apps.retain(|a| a.exe != exe);
+                if let Err(e) =
+                    vorto::data::atomic_json(&self.store.root.join("apps.json"), &self.store.apps)
+                {
+                    crate::log::write(format!("apps not saved: {e}"));
+                }
+            }
             Action::ToggleAi => {
                 let on = !self.store.settings.ai.enabled;
                 self.store.settings.ai.enabled = on;
@@ -1184,6 +1276,56 @@ impl Controller {
                 self.notify(text, Duration::from_millis(1400));
             }
         }
+    }
+
+    fn reset_everything(&mut self) {
+        if self.busy_dictating() {
+            return;
+        }
+        for provider in &self.store.settings.ai.providers {
+            crate::secret::remove(&provider.id);
+        }
+        if self.autostart && native::set_autostart(false) {
+            self.autostart = false;
+        }
+        let mut problems = Vec::new();
+        if let Err(e) = self.store.clear() {
+            problems.push(format!("History: {e}"));
+        }
+        if let Err(e) = self.store.reset_stats() {
+            problems.push(format!("Stats: {e}"));
+        }
+        self.store.apps.clear();
+        if let Err(e) =
+            vorto::data::atomic_json(&self.store.root.join("apps.json"), &self.store.apps)
+        {
+            problems.push(format!("apps: {e}"));
+        }
+        // Keep using a voice model that is already downloaded.
+        let model = self.store.settings.model.clone();
+        self.store.settings = Settings::default();
+        if data::installed(&self.store.root, &model) {
+            self.store.settings.model = model;
+        }
+        self.store.settings.validate();
+        self.save();
+        hotkey::configure(&self.store.settings.hotkey, self.store.settings.toggle);
+        hotkey::configure_extra(&self.store.settings.shortcuts.all());
+        self.latest.clear();
+        self.last_insert = None;
+        self.ai_models.clear();
+        self.ai_test = AiTest::default();
+        self.refresh_keys();
+        crate::log::write("reset everything");
+        if problems.is_empty() {
+            self.say("success", "Vorto is reset");
+        } else {
+            self.say(
+                "error",
+                format!("Not everything could be deleted: {}", problems.join(", ")),
+            );
+        }
+        self.reload_needed = true;
     }
 
     /// The newest dictation, from this session or History.
@@ -1471,6 +1613,16 @@ impl Controller {
         }
         self.target_exe = native::exe_name(self.target_hwnd);
         self.target_title = native::window_title(self.target_hwnd);
+        if let Some(path) = native::program_path(self.target_hwnd) {
+            let app = vorto::data::SeenApp {
+                exe: self.target_exe.clone(),
+                name: self.target_name(),
+                path,
+            };
+            if let Err(e) = self.store.remember_app(app) {
+                crate::log::write(format!("apps not saved: {e}"));
+            }
+        }
         self.warm_up_ai();
         self.here = self.target_hwnd == 0 && self.main_visible && self.store.settings.onboarded;
         if self.here {
@@ -1656,7 +1808,7 @@ impl Controller {
         }
         if was_recording && self.pill() {
             self.show_hud("notice", "Discarded", Some(Duration::from_millis(900)));
-        } else {
+        } else if self.editing.is_none() {
             self.hide_hud();
         }
         self.here = false;
@@ -1902,7 +2054,11 @@ impl Controller {
                 self.finish(text, editing.raw, editing.seconds);
             }
             Err(error) => {
-                crate::log::write(format!("AI editing skipped: {error}"));
+                crate::log::write(if error == "skipped" {
+                    "AI editing skipped with Esc"
+                } else {
+                    "AI editing failed; inserted as spoken"
+                });
                 self.insert_note = Some(if error == "skipped" {
                     "Inserted as spoken".into()
                 } else {
@@ -1924,6 +2080,14 @@ impl Controller {
         };
         if let Err(e) = self.store.add_edited(text.clone(), raw, seconds, app) {
             self.say("error", format!("History couldn't be saved: {e}"));
+        }
+        let counted = if self.target_hwnd != 0 {
+            self.target_name()
+        } else {
+            String::new()
+        };
+        if let Err(e) = self.store.count(&counted, &text, seconds) {
+            crate::log::write(format!("stats not saved: {e}"));
         }
         let hwnd = self.target_hwnd;
         if pasting {
@@ -2316,6 +2480,27 @@ impl Controller {
                 .collect(),
             extra_ok: hotkey::extra_ok(),
             suggestions: &self.suggestions,
+            apps: self
+                .store
+                .apps
+                .iter()
+                .map(|a| AppView {
+                    exe: &a.exe,
+                    name: &a.name,
+                    icon: native::icon_for(&a.path),
+                })
+                .collect(),
+            local_ai: self.local_ai.as_deref(),
+            stats: &self.store.stats,
+            presets: vorto::data::PRESETS
+                .iter()
+                .map(|p| PresetView {
+                    id: p.id,
+                    name: p.name,
+                    about: p.about,
+                    instructions: p.instructions,
+                })
+                .collect(),
         };
         let Ok(json) = serde_json::to_string(&snapshot) else {
             return;
@@ -2393,6 +2578,7 @@ impl Controller {
         let shows = format!("{:?}{}{}", tray.recent, tray.has_latest, tray.ai);
         if shows != self.tray_shows {
             self.tray_shows = shows;
+            self.tray_recent = tray.recent.clone();
             crate::update_tray(&self.app, tray);
         }
     }

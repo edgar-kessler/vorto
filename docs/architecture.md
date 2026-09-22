@@ -77,8 +77,10 @@ Between recognition and insertion, the dictionary's replacements are applied (`s
 
 `app/src/ai.rs` sends the text of a dictation, never audio, to a language model and inserts the reply.
 
-- **Styles** (`AiProfile` in `src/data.rs`) match the program file name or the window title of the window that had focus when the dictation began. The first enabled style that matches wins; a style without apps or titles applies everywhere else.
+- **Presets** (`PRESETS` in `src/data.rs`) are the only styles: each `AiProfile` in the settings is one preset with the user's apps, window titles, extra instructions and model. `validate` keeps exactly one profile per preset, in the presets' order, and at most one marked `everywhere`. A profile matches the program file name or the window title of the window that had focus when the dictation began; the first enabled match wins, then the one marked `everywhere`. The apps offered are the ones the user dictated into, kept with their program paths in `apps.json`.
 - **Providers** speak the OpenAI chat completions API, which Ollama, LM Studio and most services offer, or Anthropic's Messages API. A provider whose address isn't `localhost`, `127.x` or `::1` is refused until the user allows it (`allow_remote`).
+- Model lists come from the provider's own `/models`, without models that don't write text (embeddings, speech, images). For online providers, names, context sizes and prices are matched from OpenRouter's public catalog, fetched without a key at most once an hour; a setup that only uses local providers never contacts it.
+- Ollama and LM Studio are looked for on their default ports when the AI editing page opens.
 - API keys live in Windows Credential Manager under `Vorto/ai/<provider id>` (`app/src/secret.rs`), never in `settings.json`.
 - The request runs on a worker thread while the pill shows **Polishing**. Esc, a timeout (20 seconds by default) or an error inserts the text as spoken. When the dictation starts, a local model gets a one-token request so it's loaded by the time the user lets go.
 - The system prompt tells the model that the transcript is text to edit, not a message to answer, and lists the dictionary's words. Reasoning blocks, echoed tags and wrapping quotes are removed from the reply.
@@ -200,6 +202,8 @@ Everything lives in `%LOCALAPPDATA%\app.vorto.desktop`, named after the app iden
 | Path | Content |
 |---|---|
 | `settings.json` | Settings, including the dictionary and AI editing styles. API keys are in Windows Credential Manager. |
+| `stats.json` | Totals per day and per app for Stats: dictations, words and seconds. Never text. |
+| `apps.json` | The programs dictated into, with their paths, for picking them in AI editing styles. Never text. |
 | `history.json` | The last 100 dictations, if history is on, with the words as spoken when AI editing changed them |
 | `models\<id>\` | Verified voice models |
 | `models\.<id>.partial\` | A download in progress |

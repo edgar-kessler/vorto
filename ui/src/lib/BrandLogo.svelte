@@ -22,9 +22,7 @@
     flex-shrink: 0;
     user-select: none;
   }
-  @media (prefers-color-scheme: dark) {
-    .openai {
-      filter: invert(1);
-    }
+  :global([data-theme="dark"]) .openai {
+    filter: invert(1);
   }
 </style>

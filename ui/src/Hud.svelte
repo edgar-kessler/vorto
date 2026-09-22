@@ -65,7 +65,7 @@
         <span class="status shimmer">Polishing</span>
         {#if shown.text}
           <span class="divider"></span>
-          <span class="app"><Icon name="sparkles" size={14} /><span>{shown.text}</span></span>
+          <span class="app"><Icon name="pen" size={14} /><span>{shown.text}</span></span>
         {/if}
         <span class="time">Esc skips</span>
       {:else if shown.mode === "done"}

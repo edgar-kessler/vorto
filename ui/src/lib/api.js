@@ -45,6 +45,10 @@ export function currentSettings() {
   for (const [key, edit] of recentEdits) settings[key] = edit.value;
   return settings;
 }
+/** Forgets edits not yet confirmed, for example after Reset everything. */
+export function forgetEdits() {
+  recentEdits.clear();
+}
 export function saveSettings(patch) {
   const now = Date.now();
   for (const [key, value] of Object.entries(patch)) recentEdits.set(key, { value, at: now });
@@ -91,3 +95,24 @@ export function downloadText(s) {
   const detail = s?.detail ?? "";
   return detail.includes("·") ? detail.slice(detail.lastIndexOf("·") + 1).trim() : detail;
 }
+
+/** Light or dark, from Settings ("system", "light", "dark"). The choice is also kept in the
+ * page's storage, so the next start paints the right colors before the settings arrive. */
+const systemDark = typeof matchMedia === "function" ? matchMedia("(prefers-color-scheme: dark)") : null;
+export function applyTheme(choice) {
+  let pick = choice;
+  if (!pick) {
+    try {
+      pick = localStorage.getItem("vorto.theme") ?? "system";
+    } catch {
+      pick = "system";
+    }
+  } else {
+    try {
+      localStorage.setItem("vorto.theme", pick);
+    } catch {}
+  }
+  const dark = pick === "dark" || (pick !== "light" && !!systemDark?.matches);
+  document.documentElement.dataset.theme = dark ? "dark" : "light";
+}
+systemDark?.addEventListener("change", () => applyTheme(get(app)?.settings?.theme));

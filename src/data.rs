@@ -186,6 +186,10 @@ pub struct Settings {
     pub shortcuts: Shortcuts,
     /// Key clicks when dictation starts and ends, and a chime when the text is in place.
     pub sounds: bool,
+    /// How fast the user types, for the time Stats says dictation saved.
+    pub typing_wpm: u32,
+    /// "system", "light" or "dark".
+    pub theme: String,
 }
 #[derive(Clone, Serialize, Deserialize, Default, PartialEq)]
 #[serde(default)]
@@ -211,6 +215,60 @@ impl Shortcuts {
             &self.copy_last,
         ]
     }
+}
+
+/// A way of editing a dictation that Vorto ships. Users turn presets on, pick their apps and
+/// add to the instructions, but don't create their own.
+pub struct Preset {
+    pub id: &'static str,
+    pub name: &'static str,
+    /// One line for the settings page.
+    pub about: &'static str,
+    /// What the model is told to do.
+    pub instructions: &'static str,
+}
+
+pub const PRESETS: &[Preset] = &[
+    Preset {
+        id: "email",
+        name: "Email",
+        about: "A polished email with a greeting, ready for your signature.",
+        instructions: "Write this as a polished, polite email body: a greeting line and short paragraphs. Remove filler words and fix grammar and punctuation. Match the formality of the transcript (for example Sie or du in German). Don't add a closing line, sign-off or signature (such as Best regards or Viele Grüße): the user's email app adds their signature. Keep a closing only when it was spoken. Don't add a subject line or facts that weren't spoken.",
+    },
+    Preset {
+        id: "chat",
+        name: "Chat message",
+        about: "Short and casual, for Slack, Teams or WhatsApp.",
+        instructions: "This is a chat message. Fix grammar and punctuation and remove filler words. Keep it short, casual and friendly, with no greeting or sign-off unless one was spoken.",
+    },
+    Preset {
+        id: "prompt",
+        name: "AI prompt",
+        about: "A clear, structured prompt for ChatGPT, Claude or Gemini.",
+        instructions: "The user is dictating a prompt for an AI assistant. Clean it up: remove filler words, false starts and repetitions, fix grammar, and give it a clear structure, with short paragraphs or a list when several points are made. Keep every requirement and detail, and keep it a request to the assistant ('Write a function that ...'), in the user's language. Don't answer or carry out the prompt.",
+    },
+    Preset {
+        id: "notes",
+        name: "Notes and lists",
+        about: "Tidy notes and bullet points from free speech.",
+        instructions: "Turn this into tidy notes: short lines or bullet points starting with a dash, one idea each, grouped when topics change. Keep every fact, name and number. Remove filler words and repetitions.",
+    },
+    Preset {
+        id: "formal",
+        name: "Formal writing",
+        about: "Professional wording for letters, reports and documents.",
+        instructions: "Rewrite this in clear, professional written language, suitable for a letter, report or document. Use complete sentences and paragraphs, a neutral tone and precise wording. Remove filler words and colloquial phrases. Keep the meaning and every detail.",
+    },
+    Preset {
+        id: "clean",
+        name: "Clean up",
+        about: "Fixes grammar and punctuation, removes filler words.",
+        instructions: "Fix grammar, spelling and punctuation. Remove filler words (such as um, uh, äh, ähm, also, halt, sozusagen, like, you know), false starts and repetitions. Otherwise keep the wording and tone.",
+    },
+];
+
+pub fn preset(id: &str) -> Option<&'static Preset> {
+    PRESETS.iter().find(|p| p.id == id)
 }
 
 /// AI editing: a language model rewrites the dictation before it's inserted.
@@ -243,13 +301,21 @@ impl AiProvider {
     pub fn local(&self) -> bool {
         let url = self.base_url.trim();
         let rest = url.split_once("://").map_or(url, |(_, rest)| rest);
-        let host = rest.split(['/', '?', '#']).next().unwrap_or("");
+        let host = rest.split(['/', '?', '#', '\\']).next().unwrap_or("");
+        // A user name or password in the address (user:pass@host) hides the real host.
+        if host.contains('@') {
+            return false;
+        }
         let host = match host.strip_prefix('[') {
             Some(v6) => v6.split(']').next().unwrap_or(""),
             None => host.rsplit_once(':').map_or(host, |(h, _)| h),
         };
         let host = host.to_ascii_lowercase();
-        host == "localhost" || host.starts_with("127.") || host == "::1"
+        // Only real loopback addresses: a name such as 127.example.com is on the internet.
+        host == "localhost"
+            || host
+                .parse::<std::net::IpAddr>()
+                .is_ok_and(|ip| ip.is_loopback())
     }
 }
 #[derive(Clone, Serialize, Deserialize, Default, PartialEq)]
@@ -258,7 +324,7 @@ pub struct AiProfile {
     pub id: String,
     pub name: String,
     pub enabled: bool,
-    /// What to do with the dictation, in the user's words.
+    /// What the user adds to the preset's instructions, in their own words.
     pub prompt: String,
     /// Provider id; empty uses the first provider.
     pub provider: String,
@@ -268,12 +334,10 @@ pub struct AiProfile {
     pub apps: Vec<String>,
     /// Parts of window titles, such as "Gmail" for a browser tab.
     pub titles: Vec<String>,
+    /// Used in every app no other style claims.
+    pub everywhere: bool,
 }
 impl AiProfile {
-    fn everywhere(&self) -> bool {
-        self.apps.iter().all(|a| a.trim().is_empty())
-            && self.titles.iter().all(|t| t.trim().is_empty())
-    }
     fn matches(&self, exe: &str, title: &str) -> bool {
         let title = title.to_lowercase();
         self.apps
@@ -292,8 +356,8 @@ impl AiSettings {
     pub fn profile_for(&self, exe: &str, title: &str) -> Option<&AiProfile> {
         let enabled = || self.profiles.iter().filter(|p| p.enabled);
         enabled()
-            .find(|p| !p.everywhere() && p.matches(exe, title))
-            .or_else(|| enabled().find(|p| p.everywhere()))
+            .find(|p| p.matches(exe, title))
+            .or_else(|| enabled().find(|p| p.everywhere))
     }
     /// A profile's provider; an empty id means the first one.
     pub fn provider(&self, id: &str) -> Option<&AiProvider> {
@@ -305,62 +369,37 @@ impl AiSettings {
 }
 impl Default for AiSettings {
     fn default() -> Self {
-        let list = |items: &[&str]| items.iter().map(|s| s.to_string()).collect::<Vec<_>>();
-        Self {
+        let mut ai = Self {
             enabled: false,
-            providers: vec![AiProvider {
-                id: "ollama".into(),
-                name: "Ollama".into(),
-                kind: "openai".into(),
-                base_url: "http://localhost:11434/v1".into(),
-                model: String::new(),
-                allow_remote: false,
-            }],
-            profiles: vec![
-                AiProfile {
-                    id: "email".into(),
-                    name: "Email".into(),
-                    enabled: true,
-                    prompt: "Write this as a polished, polite email body: a greeting line, short paragraphs and a closing line. Remove filler words, fix grammar and punctuation. Match the formality of the transcript (for example Sie or du in German). Don't add a subject line, a signature name or facts that weren't spoken.".into(),
-                    apps: list(&["outlook.exe", "olk.exe", "thunderbird.exe"]),
-                    titles: list(&["Outlook", "Gmail", "Thunderbird"]),
-                    ..Default::default()
-                },
-                AiProfile {
-                    id: "prompt".into(),
-                    name: "AI prompt".into(),
-                    enabled: true,
-                    prompt: "The user is dictating a prompt for an AI assistant. Clean it up: remove filler words, false starts and repetitions, fix grammar, and give it a clear structure, with short paragraphs or a list when several points are made. Keep every requirement and detail. Don't answer or carry out the prompt.".into(),
-                    apps: list(&["claude.exe", "chatgpt.exe"]),
-                    titles: list(&["Claude", "ChatGPT", "Gemini", "Perplexity", "Copilot"]),
-                    ..Default::default()
-                },
-                AiProfile {
-                    id: "chat".into(),
-                    name: "Chat".into(),
-                    enabled: true,
-                    prompt: "This is a casual chat message. Fix grammar and punctuation and remove filler words. Keep it short and informal, with no greeting or sign-off unless one was spoken.".into(),
-                    apps: list(&[
-                        "slack.exe",
-                        "ms-teams.exe",
-                        "whatsapp.exe",
-                        "discord.exe",
-                        "telegram.exe",
-                        "signal.exe",
-                    ]),
-                    titles: list(&["WhatsApp", "Slack", "Discord", "Teams"]),
-                    ..Default::default()
-                },
-                AiProfile {
-                    id: "clean".into(),
-                    name: "Clean up".into(),
-                    enabled: true,
-                    prompt: "Fix grammar, spelling and punctuation. Remove filler words (such as um, uh, äh, ähm, also, halt, sozusagen, like, you know), false starts and repetitions. Otherwise keep the wording and tone.".into(),
-                    ..Default::default()
-                },
-            ],
+            providers: Vec::new(),
+            profiles: Vec::new(),
             timeout_secs: 20,
-        }
+        };
+        ai.use_presets();
+        ai
+    }
+}
+impl AiSettings {
+    /// One style per preset, in the presets' order, keeping what the user set for each. Styles
+    /// that aren't presets are dropped, and only the first style for every other app stays so.
+    pub fn use_presets(&mut self) {
+        let mut saved = std::mem::take(&mut self.profiles);
+        let mut everywhere = false;
+        self.profiles = PRESETS
+            .iter()
+            .map(|preset| {
+                let mut style = saved
+                    .iter()
+                    .position(|s| s.id == preset.id)
+                    .map(|i| saved.swap_remove(i))
+                    .unwrap_or_default();
+                style.id = preset.id.into();
+                style.name = preset.name.into();
+                style.everywhere &= !everywhere;
+                everywhere |= style.everywhere;
+                style
+            })
+            .collect();
     }
 }
 impl Default for Settings {
@@ -389,6 +428,8 @@ impl Default for Settings {
             replacements: Vec::new(),
             ai: AiSettings::default(),
             shortcuts: Shortcuts::default(),
+            typing_wpm: 40,
+            theme: "system".into(),
             sounds: true,
             highlight: true,
         }
@@ -412,6 +453,9 @@ impl Settings {
         if !["top", "bottom"].contains(&self.hud_position.as_str()) {
             self.hud_position = "top".into();
         }
+        if !["system", "light", "dark"].contains(&self.theme.as_str()) {
+            self.theme = "system".into();
+        }
         if !["paste", "type"].contains(&self.method.as_str()) {
             self.method = "paste".into();
         }
@@ -421,7 +465,15 @@ impl Settings {
         tidy(&mut self.vocabulary, 500);
         tidy(&mut self.dismissed, 500);
         for r in &mut self.replacements {
-            r.from = r.from.trim().chars().take(80).collect();
+            r.from = r
+                .from
+                .chars()
+                .filter(|c| !c.is_control())
+                .collect::<String>()
+                .trim()
+                .chars()
+                .take(80)
+                .collect();
             r.to = r.to.trim().chars().take(400).collect();
         }
         self.replacements.retain(|r| !r.from.is_empty());
@@ -446,8 +498,11 @@ impl Settings {
             p.base_url = p.base_url.trim().trim_end_matches('/').to_string();
             p.model = p.model.trim().to_string();
         }
-        for p in &mut ai.profiles {
+        ai.use_presets();
+        self.typing_wpm = self.typing_wpm.clamp(10, 200);
+        for p in &mut self.ai.profiles {
             p.model = p.model.trim().to_string();
+            p.prompt = p.prompt.trim().chars().take(2000).collect();
             tidy(&mut p.apps, 50);
             tidy(&mut p.titles, 50);
         }
@@ -456,7 +511,15 @@ impl Settings {
 /// Trimmed, without empty entries or case-insensitive duplicates, at most `max`.
 fn tidy(list: &mut Vec<String>, max: usize) {
     for item in list.iter_mut() {
-        *item = item.trim().chars().take(80).collect();
+        // No control characters: a NUL would make Whisper's prompt fail.
+        *item = item
+            .chars()
+            .filter(|c| !c.is_control())
+            .collect::<String>()
+            .trim()
+            .chars()
+            .take(80)
+            .collect();
     }
     list.retain(|w| !w.is_empty());
     let mut seen = std::collections::HashSet::new();
@@ -513,10 +576,74 @@ pub struct Entry {
     pub raw: String,
 }
 
+/// Totals for a day or an app: numbers only, never text.
+#[derive(Clone, Serialize, Deserialize, Default, PartialEq, Debug)]
+#[serde(default)]
+pub struct Tally {
+    pub dictations: u32,
+    pub words: u32,
+    /// Seconds spoken.
+    pub seconds: f32,
+}
+impl Tally {
+    fn add(&mut self, words: u32, seconds: f32) {
+        self.dictations += 1;
+        self.words += words;
+        self.seconds += seconds;
+    }
+}
+/// What Stats shows, kept in stats.json apart from History, so it covers every dictation
+/// even with History off.
+#[derive(Clone, Serialize, Deserialize, Default, PartialEq, Debug)]
+#[serde(default)]
+pub struct Stats {
+    /// By local date, "2026-09-22".
+    pub days: std::collections::BTreeMap<String, Tally>,
+    /// By app name; dictations kept in Vorto count as "Vorto".
+    pub apps: std::collections::BTreeMap<String, Tally>,
+    /// When counting began, "2026-09-22".
+    pub since: String,
+}
+impl Stats {
+    pub fn record(&mut self, app: &str, words: u32, seconds: f32) {
+        let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+        if self.since.is_empty() {
+            self.since = today.clone();
+        }
+        self.days.entry(today).or_default().add(words, seconds);
+        let app = if app.is_empty() { "Vorto" } else { app };
+        self.apps
+            .entry(app.to_string())
+            .or_default()
+            .add(words, seconds);
+        // About a year of days is plenty for the charts.
+        while self.days.len() > 400 {
+            let first = self.days.keys().next().cloned().unwrap_or_default();
+            self.days.remove(&first);
+        }
+    }
+}
+
+/// A program the user dictated into.
+#[derive(Clone, Serialize, Deserialize, Default, PartialEq)]
+#[serde(default)]
+pub struct SeenApp {
+    /// File name in lower case, such as "outlook.exe": what styles match.
+    pub exe: String,
+    pub name: String,
+    /// Full path of the program, for its icon.
+    pub path: String,
+}
+
+const MAX_APPS: usize = 80;
+
 pub struct Store {
     pub root: PathBuf,
     pub settings: Settings,
     pub history: Vec<Entry>,
+    /// Programs dictated into, newest first. Only names and paths, never text.
+    pub apps: Vec<SeenApp>,
+    pub stats: Stats,
     pub warning: Option<String>,
     /// No preferences were saved before: this is the first start.
     pub fresh: bool,
@@ -555,10 +682,20 @@ impl Store {
             .and_then(|b| serde_json::from_slice(&b).ok())
             .unwrap_or_default();
         history.truncate(100);
+        let apps: Vec<SeenApp> = fs::read(root.join("apps.json"))
+            .ok()
+            .and_then(|b| serde_json::from_slice(&b).ok())
+            .unwrap_or_default();
+        let stats: Stats = fs::read(root.join("stats.json"))
+            .ok()
+            .and_then(|b| serde_json::from_slice(&b).ok())
+            .unwrap_or_default();
         Ok(Self {
             root,
             settings,
             history,
+            apps,
+            stats,
             warning,
             fresh,
         })
@@ -603,6 +740,26 @@ impl Store {
             _ => Ok(()),
         }
     }
+    /// Counts a delivered dictation for Stats.
+    pub fn count(&mut self, app: &str, text: &str, seconds: f32) -> Result<()> {
+        let words = text.split_whitespace().count() as u32;
+        self.stats.record(app, words, seconds);
+        atomic_json(&self.root.join("stats.json"), &self.stats)
+    }
+    pub fn reset_stats(&mut self) -> Result<()> {
+        self.stats = Stats::default();
+        atomic_json(&self.root.join("stats.json"), &self.stats)
+    }
+    /// Remembers a program the user dictated into, so AI editing styles can offer it.
+    pub fn remember_app(&mut self, app: SeenApp) -> Result<()> {
+        if app.exe.is_empty() || self.apps.first() == Some(&app) {
+            return Ok(());
+        }
+        self.apps.retain(|a| a.exe != app.exe);
+        self.apps.insert(0, app);
+        self.apps.truncate(MAX_APPS);
+        atomic_json(&self.root.join("apps.json"), &self.apps)
+    }
     pub fn clear(&mut self) -> Result<()> {
         atomic_json(&self.root.join("history.json"), &Vec::<Entry>::new())?;
         self.history.clear();
@@ -646,6 +803,12 @@ mod tests {
         };
         s.validate();
         assert_eq!(s.model, DEFAULT_MODEL);
+        let mut words = Settings {
+            vocabulary: vec!["Vor\0to".into(), "\t".into()],
+            ..Default::default()
+        };
+        words.validate();
+        assert_eq!(words.vocabulary, ["Vorto"]);
         assert_eq!(s.hotkey, vec![VK_RCONTROL]);
         assert_eq!(s.idle_minutes, 0);
     }
@@ -670,17 +833,72 @@ mod tests {
     }
     #[test]
     fn styles_match_apps_and_titles() {
-        let ai = AiSettings::default();
-        let id = |exe, title| ai.profile_for(exe, title).map(|p| p.id.as_str());
-        assert_eq!(id("OUTLOOK.EXE", "Inbox"), Some("email"));
-        assert_eq!(id("chrome.exe", "Posteingang - Gmail"), Some("email"));
-        assert_eq!(id("chrome.exe", "New chat - Claude"), Some("prompt"));
-        assert_eq!(id("notepad.exe", "Untitled"), Some("clean"));
-        let mut off = ai.clone();
-        off.profiles
-            .iter_mut()
-            .for_each(|p| p.enabled = p.id != "clean");
-        assert!(off.profile_for("notepad.exe", "").is_none());
+        let style = |id: &str, apps: &[&str], titles: &[&str], everywhere| AiProfile {
+            id: id.into(),
+            enabled: true,
+            apps: apps.iter().map(|s| s.to_string()).collect(),
+            titles: titles.iter().map(|s| s.to_string()).collect(),
+            everywhere,
+            ..Default::default()
+        };
+        let mut ai = AiSettings {
+            profiles: vec![
+                style("rest", &[], &[], true),
+                style("email", &["outlook.exe"], &["Gmail"], false),
+            ],
+            ..Default::default()
+        };
+        let id = |ai: &AiSettings, exe, title| ai.profile_for(exe, title).map(|p| p.id.clone());
+        assert_eq!(id(&ai, "OUTLOOK.EXE", "Inbox").as_deref(), Some("email"));
+        assert_eq!(
+            id(&ai, "chrome.exe", "Posteingang - Gmail").as_deref(),
+            Some("email")
+        );
+        assert_eq!(id(&ai, "notepad.exe", "Untitled").as_deref(), Some("rest"));
+        ai.profiles[0].everywhere = false;
+        assert_eq!(
+            id(&ai, "notepad.exe", "Untitled"),
+            None,
+            "a new style without apps applies nowhere"
+        );
+        ai.profiles[1].enabled = false;
+        assert_eq!(id(&ai, "outlook.exe", ""), None);
+    }
+    #[test]
+    fn styles_are_always_the_presets() {
+        let mut s = Settings::default();
+        assert_eq!(s.ai.profiles.len(), PRESETS.len());
+        s.ai.profiles.retain(|p| p.id != "chat");
+        s.ai.profiles.push(AiProfile {
+            id: "mine".into(),
+            ..Default::default()
+        });
+        for p in s.ai.profiles.iter_mut() {
+            p.everywhere = true;
+            if p.id == "email" {
+                p.apps = vec!["olk.exe".into()];
+            }
+        }
+        s.validate();
+        let ids: Vec<_> = s.ai.profiles.iter().map(|p| p.id.as_str()).collect();
+        assert_eq!(ids, PRESETS.iter().map(|p| p.id).collect::<Vec<_>>());
+        assert_eq!(
+            s.ai.profiles[0].apps,
+            ["olk.exe"],
+            "the user's choices stay"
+        );
+        assert_eq!(s.ai.profiles.iter().filter(|p| p.everywhere).count(), 1);
+    }
+    #[test]
+    fn stats_add_up() {
+        let mut stats = Stats::default();
+        stats.record("Slack", 10, 4.0);
+        stats.record("Slack", 5, 2.0);
+        stats.record("", 3, 1.0);
+        assert_eq!(stats.apps["Slack"].words, 15);
+        assert_eq!(stats.apps["Slack"].dictations, 2);
+        assert_eq!(stats.apps["Vorto"].seconds, 1.0);
+        assert_eq!(stats.days.values().map(|d| d.dictations).sum::<u32>(), 3);
     }
     #[test]
     fn local_providers_are_recognized() {
@@ -693,6 +911,12 @@ mod tests {
         assert!(p("http://[::1]:8080").local());
         assert!(!p("https://api.openai.com/v1").local());
         assert!(!p("https://localhost.evil.com/v1").local());
+        assert!(!p("http://127.evil.com/v1").local());
+        assert!(!p("http://127.0.0.1.nip.io/v1").local());
+        assert!(p("http://127.0.0.2:8080").local());
+        assert!(!p("http://127.0.0.1:1234@evil.com/v1").local());
+        assert!(!p("http://[::1]:80@evil.com").local());
+        assert!(!p("http://localhost:1@evil.com").local());
     }
     #[test]
     fn atomic_save_replaces_existing_file() {
