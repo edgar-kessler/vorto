@@ -75,16 +75,26 @@ fn serve() -> Result<()> {
                     model = Some(context);
                     emit(Event::Ready);
                 }
-                Command::Transcribe { audio, language } => {
+                Command::Transcribe {
+                    audio,
+                    language,
+                    prompt,
+                } => {
                     let context = model.as_mut().context("The voice model isn't ready.")?;
-                    let text = transcribe_file(context.as_mut(), &audio, language)?.text;
+                    let text = transcribe_file(context.as_mut(), &audio, language, prompt)?.text;
                     emit(Event::Result { text });
                 }
-                Command::Preview { audio, language } => {
+                Command::Preview {
+                    audio,
+                    language,
+                    prompt,
+                } => {
                     let outcome = model
                         .as_mut()
                         .context("The voice model isn't ready.")
-                        .and_then(|context| transcribe_file(context.as_mut(), &audio, language));
+                        .and_then(|context| {
+                            transcribe_file(context.as_mut(), &audio, language, prompt)
+                        });
                     // Reported in the event rather than as an error, which would end the dictation.
                     emit(match outcome {
                         Ok(transcript) => Event::Preview {
@@ -144,6 +154,7 @@ fn warm_up(provider: &mut dyn TranscriptionProvider) -> Result<()> {
             AudioRequest {
                 samples: vec![0.0; 16_000],
                 language: Some("en".into()),
+                prompt: String::new(),
                 allow_remote: false,
             },
             Cancellation::default(),
@@ -155,6 +166,7 @@ fn transcribe_file(
     provider: &mut dyn TranscriptionProvider,
     audio: &Path,
     language: String,
+    prompt: String,
 ) -> Result<Transcript> {
     let mut reader = hound::WavReader::open(audio)?;
     let spec = reader.spec();
@@ -176,6 +188,7 @@ fn transcribe_file(
             } else {
                 Some(language)
             },
+            prompt,
             allow_remote: false,
         },
         Cancellation::default(),

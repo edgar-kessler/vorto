@@ -7,6 +7,25 @@ and Vorto follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-09-22
+
+### Added
+
+- AI editing: a language model polishes each dictation before it's inserted, in a style picked by app or window title. Styles for email, AI prompts, chats and a general clean-up are included, and their instructions can be changed or extended.
+- Providers for AI editing: Ollama and LM Studio on your PC, OpenAI, Anthropic, Google Gemini, Groq, Mistral, OpenRouter, DeepSeek, xAI, Together AI and any OpenAI-compatible address. API keys are kept in Windows Credential Manager. Online providers need your permission before they receive text.
+- Esc skips AI editing, and a dictation is inserted as spoken when the model is slow or fails. Local models are loaded while you speak.
+- A dictionary for names and terms, which Whisper listens for and AI editing keeps, with suggestions from History.
+- Replacements that swap words in every dictation, including line breaks.
+- More shortcuts: paste the last dictation again, undo the last insertion, copy the last dictation and turn AI editing on or off.
+- The tray menu pastes or copies the last dictation, pastes one of the last five again, turns AI editing on or off and opens History, the Dictionary and Settings.
+- History keeps the words as spoken when AI editing changed them, with **Copy as spoken**.
+- A short glow over the words Vorto just inserted, found through UI Automation, or at the cursor in apps that only report that. It can be turned off in Settings.
+- Sounds: a soft key click when dictation starts and ends, and a chime when the text is in place. They can be turned off in Settings.
+
+### Changed
+
+- A new logo and app icon.
+
 ### Fixed
 
 - A finished model download no longer leaves an empty `.lock` file in the models folder.
@@ -39,6 +58,7 @@ The first public release.
 - Signed automatic updates from GitHub Releases, which can be turned off.
 - A clear message on processors without AVX2, which aren't supported yet.
 
-[Unreleased]: https://github.com/edgar-kessler/vorto/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/edgar-kessler/vorto/compare/v1.0.2...HEAD
+[1.0.2]: https://github.com/edgar-kessler/vorto/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/edgar-kessler/vorto/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/edgar-kessler/vorto/releases/tag/v1.0.0

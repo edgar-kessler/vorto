@@ -49,6 +49,7 @@ impl TranscriptionProvider for LocalWhisper {
             &mut self.state,
             &request.samples,
             request.language.as_deref().unwrap_or("auto"),
+            &request.prompt,
             self.threads,
             &cancel,
         )?;
@@ -61,6 +62,7 @@ fn transcribe(
     state: &mut WhisperState,
     audio: &[f32],
     language: &str,
+    prompt: &str,
     threads: usize,
     cancel: &Cancellation,
 ) -> Result<Transcript> {
@@ -73,6 +75,9 @@ fn transcribe(
     });
     params.set_translate(false);
     params.set_no_context(true);
+    if !prompt.is_empty() {
+        params.set_initial_prompt(prompt);
+    }
     params.set_print_progress(false);
     params.set_print_realtime(false);
     params.set_print_timestamps(false);

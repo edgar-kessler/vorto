@@ -10,10 +10,14 @@
   import History from "./pages/History.svelte";
   import Settings from "./pages/Settings.svelte";
   import Onboarding from "./pages/Onboarding.svelte";
+  import Dictionary from "./pages/Dictionary.svelte";
+  import Ai from "./pages/Ai.svelte";
 
   const nav = [
     { id: "home", label: "Dictate", icon: "dictate" },
     { id: "history", label: "History", icon: "history" },
+    { id: "dictionary", label: "Dictionary", icon: "book" },
+    { id: "ai", label: "AI editing", icon: "sparkles" },
     { id: "models", label: "Voice models", icon: "models" },
     { id: "settings", label: "Settings", icon: "settings" },
   ];
@@ -104,6 +108,8 @@
             {#if $route === "home"}<Home />
             {:else if $route === "models"}<Models />
             {:else if $route === "history"}<History />
+            {:else if $route === "dictionary"}<Dictionary />
+            {:else if $route === "ai"}<Ai />
             {:else}<Settings />{/if}
           </div>
         {/key}

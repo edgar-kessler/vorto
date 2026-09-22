@@ -7,15 +7,16 @@
 use std::sync::{
     atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering},
     mpsc::Sender,
-    OnceLock,
+    Mutex, OnceLock,
 };
 use windows_sys::Win32::{
     Foundation::{LPARAM, LRESULT, WPARAM},
     System::{LibraryLoader::GetModuleHandleW, Threading::GetCurrentProcessId},
     UI::{
         Input::KeyboardAndMouse::{
-            GetAsyncKeyState, GetKeyNameTextW, MapVirtualKeyW, SendInput, INPUT, INPUT_KEYBOARD,
-            KEYBDINPUT, KEYEVENTF_KEYUP,
+            GetAsyncKeyState, GetKeyNameTextW, MapVirtualKeyW, RegisterHotKey, SendInput,
+            UnregisterHotKey, HOT_KEY_MODIFIERS, INPUT, INPUT_KEYBOARD, KEYBDINPUT,
+            KEYEVENTF_KEYUP, MOD_ALT, MOD_CONTROL, MOD_NOREPEAT, MOD_SHIFT, MOD_WIN,
         },
         WindowsAndMessaging::*,
     },
@@ -31,6 +32,8 @@ pub enum HookEvent {
     Escape,
     /// A shortcut recorded while capturing.
     Captured(Vec<u32>),
+    /// One of the extra shortcuts, by its index in `Shortcuts::all`.
+    Shortcut(usize),
 }
 
 static SENDER: OnceLock<Sender<HookEvent>> = OnceLock::new();
@@ -43,6 +46,14 @@ static CAPTURING: AtomicBool = AtomicBool::new(false);
 static SWALLOWED: [AtomicU64; 4] = [const { AtomicU64::new(0) }; 4];
 static CAPTURED: [AtomicU64; 4] = [const { AtomicU64::new(0) }; 4];
 static RECORDING: AtomicBool = AtomicBool::new(false);
+/// Escape also ends something other than recording, such as AI editing.
+static ESCAPABLE: AtomicBool = AtomicBool::new(false);
+/// The extra shortcuts, registered with Windows on the hook thread.
+static EXTRA: Mutex<Vec<Vec<u32>>> = Mutex::new(Vec::new());
+/// Whether each extra shortcut works: unset, or registered with Windows.
+static EXTRA_OK: [AtomicBool; 4] = [const { AtomicBool::new(true) }; 4];
+static HOOK_THREAD: AtomicU32 = AtomicU32::new(0);
+const WM_REGISTER: u32 = WM_APP + 1;
 static INSTALLED: AtomicBool = AtomicBool::new(false);
 /// Tick count of the last keyboard event, so the key state is not compared too early.
 static LAST_KEY: AtomicU32 = AtomicU32::new(0);
@@ -201,6 +212,10 @@ pub fn set_recording(on: bool) {
         ACTIVE.store(false, Ordering::Relaxed);
     }
 }
+/// Lets Escape through to Vorto while `on`, for example to skip AI editing.
+pub fn set_escapable(on: bool) {
+    ESCAPABLE.store(on, Ordering::Relaxed);
+}
 pub fn force_inactive() {
     ACTIVE.store(false, Ordering::Relaxed);
 }
@@ -250,7 +265,7 @@ fn handle(vk: u32, down: bool) -> bool {
     // Escape that cancels a dictation is not also delivered to the app, and neither are
     // its repeats and release.
     if vk == VK_ESCAPE {
-        if down && RECORDING.load(Ordering::Relaxed) {
+        if down && (RECORDING.load(Ordering::Relaxed) || ESCAPABLE.load(Ordering::Relaxed)) {
             send(HookEvent::Escape);
             set(&SWALLOWED, vk, true);
             return true;
@@ -421,7 +436,8 @@ pub fn start(sender: Sender<HookEvent>) {
         .name("vorto-hotkey".into())
         .spawn(|| unsafe {
             use windows_sys::Win32::System::Threading::{
-                GetCurrentThread, SetThreadPriority, THREAD_PRIORITY_TIME_CRITICAL,
+                GetCurrentThread, GetCurrentThreadId, SetThreadPriority,
+                THREAD_PRIORITY_TIME_CRITICAL,
             };
             SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
             let module = GetModuleHandleW(std::ptr::null());
@@ -440,7 +456,22 @@ pub fn start(sender: Sender<HookEvent>) {
             ));
             SetTimer(0, 0, 4000, None);
             let mut msg: MSG = std::mem::zeroed();
+            // Creates this thread's message queue, so shortcuts can be registered from now on.
+            PeekMessageW(&mut msg, 0, 0, 0, PM_NOREMOVE);
+            HOOK_THREAD.store(GetCurrentThreadId(), Ordering::Release);
+            register_extra();
             while GetMessageW(&mut msg, 0, 0, 0) > 0 {
+                if msg.message == WM_REGISTER {
+                    register_extra();
+                    continue;
+                }
+                if msg.message == WM_HOTKEY {
+                    let id = msg.wParam;
+                    if (1..=4).contains(&id) {
+                        send(HookEvent::Shortcut(id - 1));
+                    }
+                    continue;
+                }
                 if msg.message == WM_TIMER {
                     // Renew each hook on its own: keep the old one if its replacement failed.
                     let fresh = install();
@@ -467,6 +498,53 @@ pub fn start(sender: Sender<HookEvent>) {
             UnhookWindowsHookEx(hooks.1);
         })
         .expect("hotkey thread");
+}
+
+/// Sets the extra shortcuts, in the order of `Shortcuts::all`. Windows reports a combination
+/// another app already uses; `extra_ok` tells which ones work.
+pub fn configure_extra(shortcuts: &[&Vec<u32>]) {
+    if let Ok(mut extra) = EXTRA.lock() {
+        *extra = shortcuts.iter().map(|k| (*k).clone()).collect();
+    }
+    let thread = HOOK_THREAD.load(Ordering::Acquire);
+    if thread != 0 {
+        unsafe { PostThreadMessageW(thread, WM_REGISTER, 0, 0) };
+    }
+}
+pub fn extra_ok() -> [bool; 4] {
+    std::array::from_fn(|i| EXTRA_OK[i].load(Ordering::Relaxed))
+}
+
+/// Modifiers and the one other key of a combination, as RegisterHotKey wants them.
+fn hotkey_parts(keys: &[u32]) -> Option<(HOT_KEY_MODIFIERS, u32)> {
+    let mut modifiers = 0;
+    let mut key = None;
+    for &vk in keys {
+        match generic(vk) {
+            0x10 => modifiers |= MOD_SHIFT,
+            0x11 => modifiers |= MOD_CONTROL,
+            0x12 => modifiers |= MOD_ALT,
+            0x5B => modifiers |= MOD_WIN,
+            0x01..=0x06 => return None,
+            other if key.is_none() => key = Some(other),
+            _ => return None,
+        }
+    }
+    Some((modifiers, key?))
+}
+
+/// Runs on the hook thread, which receives the WM_HOTKEY messages.
+fn register_extra() {
+    let extra = EXTRA.lock().map(|e| e.clone()).unwrap_or_default();
+    for id in 1..=4usize {
+        unsafe { UnregisterHotKey(0, id as i32) };
+        let keys = extra.get(id - 1).cloned().unwrap_or_default();
+        let ok = keys.is_empty()
+            || hotkey_parts(&keys).is_some_and(|(modifiers, vk)| unsafe {
+                RegisterHotKey(0, id as i32, modifiers | MOD_NOREPEAT, vk) != 0
+            });
+        EXTRA_OK[id - 1].store(ok, Ordering::Relaxed);
+    }
 }
 
 /// Human-readable names, e.g. ["Ctrl", "Shift", "Space"].
@@ -534,6 +612,17 @@ mod tests {
     fn modifiers_are_recognized() {
         assert!(is_modifier(0xA3));
         assert!(!is_modifier(0x20));
+    }
+    #[test]
+    fn extra_shortcuts_need_one_key() {
+        assert_eq!(
+            hotkey_parts(&[0x11, 0x12, 0x56]),
+            Some((MOD_CONTROL | MOD_ALT, 0x56))
+        );
+        assert_eq!(hotkey_parts(&[0x78]), Some((0, 0x78)));
+        assert_eq!(hotkey_parts(&[0x11]), None);
+        assert_eq!(hotkey_parts(&[0x11, 0x41, 0x42]), None);
+        assert_eq!(hotkey_parts(&[0x11, 0x05]), None);
     }
     #[test]
     fn known_names_are_readable() {

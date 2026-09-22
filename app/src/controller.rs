@@ -2,8 +2,10 @@
 //! actions, and publishes what the two windows render: the full state for the main window
 //! while it is on screen, and a small one for the recording pill.
 use crate::{
+    ai,
     hotkey::{self, HookEvent},
     native::{self, Target},
+    sound::Sound,
     update::{self, UpdateMsg, UpdateView},
 };
 use serde::{Deserialize, Serialize};
@@ -22,6 +24,7 @@ use vorto::{
     data::{self, Family, Settings, Store},
     protocol::{Command, Event},
     supervisor::{Phase, Supervisor},
+    vocab,
 };
 use windows_sys::Win32::UI::{Shell::ShellExecuteW, WindowsAndMessaging::SW_SHOWNORMAL};
 
@@ -45,7 +48,7 @@ pub enum Action {
     Retry,
     UseCpu,
     SaveSettings {
-        settings: Settings,
+        settings: Box<Settings>,
     },
     RecordShortcut,
     StopRecordingShortcut,
@@ -67,6 +70,23 @@ pub enum Action {
     },
     CheckForUpdates,
     InstallUpdate,
+    /// Stores an API key in Windows Credential Manager; an empty key removes it.
+    SetApiKey {
+        provider: String,
+        key: String,
+    },
+    ListModels {
+        provider: String,
+    },
+    /// Runs a style on sample text and shows the result on the AI editing page.
+    TestAi {
+        profile: String,
+        text: String,
+    },
+    PasteLast,
+    CopyLast,
+    UndoLast,
+    ToggleAi,
 }
 
 impl Action {
@@ -91,6 +111,13 @@ impl Action {
             Action::SetAutostart { .. } => "setAutostart",
             Action::CheckForUpdates => "checkForUpdates",
             Action::InstallUpdate => "installUpdate",
+            Action::SetApiKey { .. } => "setApiKey",
+            Action::ListModels { .. } => "listModels",
+            Action::TestAi { .. } => "testAi",
+            Action::PasteLast => "pasteLast",
+            Action::CopyLast => "copyLast",
+            Action::UndoLast => "undoLast",
+            Action::ToggleAi => "toggleAi",
         }
     }
 }
@@ -101,7 +128,26 @@ pub enum Msg {
     Inserted {
         outcome: native::Outcome,
         text: String,
+        /// Pasted again from History or the tray, not a new dictation.
+        again: bool,
     },
+    /// AI editing finished for a dictation.
+    Edited {
+        dictation: u64,
+        result: Result<String, String>,
+    },
+    Models {
+        provider: String,
+        result: Result<Vec<String>, String>,
+    },
+    Tested {
+        id: u64,
+        result: Result<String, String>,
+    },
+    /// A tray menu item that needs the controller.
+    Tray(String),
+    /// Where inserted text landed on screen, for the highlight.
+    Landed(Vec<crate::caret::Rect>),
     /// Audio prepared while recording, with the dictation it was prepared for.
     PreviewReady(u64, Option<Prepared>),
     /// The main window was shown or hidden (or minimized).
@@ -196,6 +242,40 @@ struct Snapshot<'a> {
     /// Icons of the apps in History. Sorted, so an unchanged state serializes the same way.
     app_icons: BTreeMap<&'a str, &'a str>,
     update: &'a UpdateView,
+    /// Providers with an API key in Credential Manager.
+    api_keys: &'a BTreeMap<String, bool>,
+    /// Whether each provider runs on this PC, in settings order.
+    providers_local: Vec<bool>,
+    ai_models: &'a BTreeMap<String, ModelList>,
+    ai_test: &'a AiTest,
+    /// Names of the keys of each extra shortcut, in `Shortcuts::all` order.
+    extra_shortcuts: Vec<Vec<String>>,
+    extra_ok: [bool; 4],
+    suggestions: &'a [String],
+}
+
+#[derive(Serialize, Clone, Default)]
+struct ModelList {
+    /// loading, done or error
+    status: &'static str,
+    models: Vec<String>,
+    error: String,
+}
+#[derive(Serialize, Clone, Default)]
+struct AiTest {
+    id: u64,
+    /// "", running, done or error
+    status: &'static str,
+    text: String,
+    millis: u64,
+}
+/// A dictation waiting for AI editing.
+struct Editing {
+    dictation: u64,
+    raw: String,
+    seconds: f32,
+    started: Instant,
+    timeout: Duration,
 }
 
 /// Only what the recording pill shows.
@@ -399,6 +479,27 @@ pub struct Controller {
     /// A check is on its way. Checks in the background don't show "checking", so a result the
     /// user asked for stays on screen.
     update_checking: bool,
+    /// The program and window title where the dictation began, for AI editing styles.
+    target_exe: String,
+    target_title: String,
+    editing: Option<Editing>,
+    /// Shown by the pill instead of "Inserted", for example when AI editing was skipped.
+    insert_note: Option<String>,
+    /// Where and when text was last inserted, for undo.
+    last_insert: Option<(isize, Instant)>,
+    /// The last window of another app, ignoring the taskbar, for pasting from the tray.
+    paste_target: isize,
+    api_keys: BTreeMap<String, bool>,
+    ai_models: BTreeMap<String, ModelList>,
+    ai_test: AiTest,
+    ai_test_started: Instant,
+    suggestions: Vec<String>,
+    suggestions_for: (usize, String, usize, usize),
+    /// What the tray menu shows, so it's rebuilt only when that changes.
+    tray_shows: String,
+    /// The window that glows over inserted text, and when it goes away.
+    flash: isize,
+    flash_hide_at: Option<Instant>,
 }
 
 fn epoch_ms() -> u64 {
@@ -415,6 +516,7 @@ impl Controller {
         published: Arc<Mutex<Published>>,
         store: Store,
         overlay: (isize, (i32, i32)),
+        flash: isize,
         hidden: bool,
     ) -> Self {
         let mut controller = Self {
@@ -482,8 +584,25 @@ impl Controller {
             install_when_ready: false,
             next_update_check: Instant::now() + Duration::from_secs(20),
             update_checking: false,
+            target_exe: String::new(),
+            target_title: String::new(),
+            editing: None,
+            insert_note: None,
+            last_insert: None,
+            paste_target: 0,
+            api_keys: BTreeMap::new(),
+            ai_models: BTreeMap::new(),
+            ai_test: AiTest::default(),
+            ai_test_started: Instant::now(),
+            suggestions: Vec::new(),
+            suggestions_for: (usize::MAX, String::new(), 0, 0),
+            tray_shows: String::new(),
+            flash,
+            flash_hide_at: None,
         };
         controller.refresh_installed();
+        controller.refresh_keys();
+        hotkey::configure_extra(&controller.store.settings.shortcuts.all());
         if controller.installed() {
             if hidden {
                 // Started with Windows: let sign-in finish before reading the model from disk.
@@ -539,6 +658,7 @@ impl Controller {
             || self.capturing
             || self.hud.mode != "hidden"
             || self.hud_hide_at.is_some()
+            || self.editing.is_some()
             || matches!(self.update.status, "checking" | "downloading")
     }
     fn installed(&self) -> bool {
@@ -602,7 +722,15 @@ impl Controller {
         // Reloads the model in use, or shows setup when none is installed.
         self.load();
     }
+    fn sound(&self, sound: Sound) {
+        if self.store.settings.sounds {
+            crate::sound::play(sound);
+        }
+    }
     fn show_hud(&mut self, mode: &'static str, text: impl Into<String>, lasts: Option<Duration>) {
+        if mode == "error" {
+            self.sound(Sound::Error);
+        }
         if !self.pill() {
             // For example the indicator was turned off mid-dictation: don't leave the pill behind.
             self.hide_hud();
@@ -648,7 +776,27 @@ impl Controller {
             .unwrap_or_default()
     }
     fn busy_dictating(&self) -> bool {
-        self.recorder.is_some() || self.pending.is_some()
+        self.recorder.is_some() || self.pending.is_some() || self.editing.is_some()
+    }
+    fn refresh_keys(&mut self) {
+        self.api_keys = self
+            .store
+            .settings
+            .ai
+            .providers
+            .iter()
+            .map(|p| (p.id.clone(), crate::secret::read(&p.id).is_some()))
+            .collect();
+    }
+    /// The Whisper hint from the dictionary; Parakeet takes none.
+    fn prompt(&self) -> String {
+        let whisper =
+            data::model(&self.store.settings.model).is_some_and(|m| m.family == Family::Whisper);
+        if whisper {
+            vocab::whisper_prompt(&self.store.settings.vocabulary)
+        } else {
+            String::new()
+        }
     }
 
     fn handle(&mut self, msg: Msg) {
@@ -664,11 +812,71 @@ impl Controller {
             Msg::Hook(HookEvent::Escape) => {
                 if self.recorder.is_some() {
                     self.cancel();
+                } else if self.editing.is_some() {
+                    self.edited(self.dictation, Err("skipped".into()));
                 }
             }
             Msg::Hook(HookEvent::Captured(keys)) => self.set_shortcut(keys),
+            Msg::Hook(HookEvent::Shortcut(index)) => {
+                let action = match index {
+                    0 => Action::PasteLast,
+                    1 => Action::UndoLast,
+                    2 => Action::ToggleAi,
+                    _ => Action::CopyLast,
+                };
+                self.act(action);
+            }
             Msg::PreviewReady(dictation, prepared) => self.send_preview(dictation, prepared),
-            Msg::Inserted { outcome, text } => self.inserted(outcome, text),
+            Msg::Inserted {
+                outcome,
+                text,
+                again,
+            } => self.inserted(outcome, text, again),
+            Msg::Edited { dictation, result } => self.edited(dictation, result),
+            Msg::Landed(rects) => self.highlight(rects),
+            Msg::Models { provider, result } => {
+                let list = match result {
+                    Ok(models) => ModelList {
+                        status: "done",
+                        models,
+                        error: String::new(),
+                    },
+                    Err(error) => ModelList {
+                        status: "error",
+                        models: Vec::new(),
+                        error,
+                    },
+                };
+                self.ai_models.insert(provider, list);
+            }
+            Msg::Tested { id, result } => {
+                if id == self.ai_test.id {
+                    self.ai_test.millis = self.ai_test_started.elapsed().as_millis() as u64;
+                    (self.ai_test.status, self.ai_test.text) = match result {
+                        Ok(text) => ("done", text),
+                        Err(error) => ("error", error),
+                    };
+                }
+            }
+            Msg::Tray(id) => {
+                let hwnd = self.paste_target;
+                match id.as_str() {
+                    "paste_last" => self.paste_again(self.latest_text(), hwnd),
+                    "copy_last" => self.act(Action::CopyLast),
+                    "ai" => self.act(Action::ToggleAi),
+                    "check_updates" => self.act(Action::CheckForUpdates),
+                    _ => {
+                        if let Some(entry) = id
+                            .strip_prefix("recent:")
+                            .and_then(|i| i.parse::<usize>().ok())
+                            .and_then(|i| self.store.history.get(i))
+                        {
+                            let text = entry.text.clone();
+                            self.paste_again(text, hwnd);
+                        }
+                    }
+                }
+            }
             Msg::MainWindow { visible } => {
                 let shown = visible && !self.main_visible;
                 self.main_visible = visible;
@@ -688,18 +896,29 @@ impl Controller {
         }
     }
 
-    fn inserted(&mut self, outcome: native::Outcome, text: String) {
+    fn inserted(&mut self, outcome: native::Outcome, text: String, again: bool) {
         self.inserting = self.inserting.saturating_sub(1);
-        crate::log::write(format!(
-            "inserted {} ms after release",
-            self.stopped_at.elapsed().as_millis()
-        ));
+        if !again {
+            crate::log::write(format!(
+                "inserted {} ms after release",
+                self.stopped_at.elapsed().as_millis()
+            ));
+        }
+        let note = self.insert_note.take();
         // A later dictation may already own the pill.
         let busy = self.busy_dictating();
         let problem = match outcome {
             native::Outcome::Inserted => {
                 if !busy {
-                    self.show_hud("done", "Inserted", Some(Duration::from_millis(1100)));
+                    self.sound(Sound::Done);
+                    match note {
+                        Some(note) => {
+                            self.show_hud("notice", note, Some(Duration::from_millis(3200)))
+                        }
+                        None => {
+                            self.show_hud("done", "Inserted", Some(Duration::from_millis(1100)))
+                        }
+                    }
                 }
                 return;
             }
@@ -707,9 +926,12 @@ impl Controller {
             native::Outcome::Elevated => "That app runs as administrator.",
         };
         // Out of clipboard history: the text is only there to be pasted, and it's in Vorto's History.
+        self.last_insert = None;
         let copied = native::set_clipboard_private(&text);
-        if let Err(e) = self.store.forget_app(&text) {
-            crate::log::write(format!("history not updated: {e}"));
+        if !again {
+            if let Err(e) = self.store.forget_app(&text) {
+                crate::log::write(format!("history not updated: {e}"));
+            }
         }
         // Another app can hold the clipboard open. The Dictate page shows the text either way.
         let message = if copied {
@@ -748,6 +970,14 @@ impl Controller {
             }
             Action::SaveSettings { mut settings } => {
                 settings.validate();
+                // A removed provider takes its API key with it.
+                for old in &self.store.settings.ai.providers {
+                    if !settings.ai.providers.iter().any(|p| p.id == old.id) {
+                        crate::secret::remove(&old.id);
+                        self.ai_models.remove(&old.id);
+                    }
+                }
+                let shortcuts_changed = settings.shortcuts != self.store.settings.shortcuts;
                 let reload = settings.gpu != self.store.settings.gpu
                     || settings.model != self.store.settings.model;
                 let check_now = settings.auto_update && !self.store.settings.auto_update;
@@ -756,10 +986,14 @@ impl Controller {
                 // The shortcut only changes through recording.
                 settings.hotkey = self.store.settings.hotkey.clone();
                 settings.autostart = self.store.settings.autostart;
-                self.store.settings = settings;
+                self.store.settings = *settings;
                 if toggle_changed {
                     hotkey::configure(&self.store.settings.hotkey, self.store.settings.toggle);
                 }
+                if shortcuts_changed {
+                    hotkey::configure_extra(&self.store.settings.shortcuts.all());
+                }
+                self.refresh_keys();
                 self.save();
                 if check_now {
                     self.next_update_check = Instant::now();
@@ -859,7 +1093,154 @@ impl Controller {
                 }
                 _ => {}
             },
+            Action::SetApiKey { provider, key } => {
+                if !crate::secret::write(&provider, &key) {
+                    self.say("error", "Windows didn't store the API key.");
+                }
+                self.ai_models.remove(&provider);
+                self.refresh_keys();
+            }
+            Action::ListModels { provider } => {
+                let Some(found) = self
+                    .store
+                    .settings
+                    .ai
+                    .providers
+                    .iter()
+                    .find(|p| p.id == provider)
+                    .cloned()
+                else {
+                    return;
+                };
+                self.ai_models.insert(
+                    provider.clone(),
+                    ModelList {
+                        status: "loading",
+                        ..Default::default()
+                    },
+                );
+                let tx = self.tx.clone();
+                std::thread::spawn(move || {
+                    let result = ai::models(&found).map_err(|e| format!("{e:#}"));
+                    let _ = tx.send(Msg::Models { provider, result });
+                });
+            }
+            Action::TestAi { profile, text } => {
+                let ai = &self.store.settings.ai;
+                let found = ai.profiles.iter().find(|p| p.id == profile);
+                let provider = found.and_then(|p| ai.provider(&p.provider));
+                self.ai_test.id += 1;
+                self.ai_test.millis = 0;
+                let (Some(profile), Some(provider)) = (found, provider) else {
+                    self.ai_test.status = "error";
+                    self.ai_test.text = "Add a provider first.".into();
+                    return;
+                };
+                let job = ai::Job::new(
+                    provider,
+                    profile,
+                    &self.store.settings.vocabulary,
+                    vocab::replace(&text, &self.store.settings.replacements),
+                    Duration::from_secs(self.store.settings.ai.timeout_secs.max(60)),
+                );
+                self.ai_test.status = "running";
+                self.ai_test.text.clear();
+                self.ai_test_started = Instant::now();
+                let (tx, id) = (self.tx.clone(), self.ai_test.id);
+                std::thread::spawn(move || {
+                    let result = ai::edit(&job).map_err(|e| format!("{e:#}"));
+                    let _ = tx.send(Msg::Tested { id, result });
+                });
+            }
+            Action::PasteLast => {
+                let foreground = native::foreground();
+                let hwnd = if native::is_own(foreground) || native::is_shell(foreground) {
+                    self.paste_target
+                } else {
+                    foreground
+                };
+                self.paste_again(self.latest_text(), hwnd);
+            }
+            Action::CopyLast => {
+                let text = self.latest_text();
+                if text.is_empty() {
+                    self.notify("Nothing dictated yet", Duration::from_millis(1400));
+                } else if native::set_clipboard(&text) {
+                    self.notify("Copied your last dictation", Duration::from_millis(1400));
+                } else {
+                    self.say("error", "Couldn't copy to the clipboard.");
+                }
+            }
+            Action::UndoLast => self.undo_last(),
+            Action::ToggleAi => {
+                let on = !self.store.settings.ai.enabled;
+                self.store.settings.ai.enabled = on;
+                self.save();
+                let text = match (on, self.store.settings.ai.providers.is_empty()) {
+                    (true, true) => "AI editing is on. Add a provider in Vorto",
+                    (true, false) => "AI editing on",
+                    (false, _) => "AI editing off",
+                };
+                self.notify(text, Duration::from_millis(1400));
+            }
         }
+    }
+
+    /// The newest dictation, from this session or History.
+    fn latest_text(&self) -> String {
+        if !self.latest.is_empty() {
+            return self.latest.clone();
+        }
+        self.store
+            .history
+            .first()
+            .map(|e| e.text.clone())
+            .unwrap_or_default()
+    }
+    /// Inserts earlier words again, for example after pasting into the wrong field.
+    fn paste_again(&mut self, text: String, hwnd: isize) {
+        if self.busy_dictating() {
+            return;
+        }
+        if text.is_empty() {
+            self.notify("Nothing dictated yet", Duration::from_millis(1400));
+            return;
+        }
+        if !native::is_window(hwnd) || native::is_own(hwnd) {
+            if native::set_clipboard(&text) {
+                self.say("info", "Copied. Click into an app and press Ctrl+V.");
+            }
+            return;
+        }
+        self.target_hwnd = hwnd;
+        self.set_target(hwnd);
+        self.here = false;
+        self.insert(text, hwnd, true);
+    }
+    fn undo_last(&mut self) {
+        let Some((hwnd, at)) = self.last_insert else {
+            self.notify("Nothing to undo", Duration::from_millis(1400));
+            return;
+        };
+        if at.elapsed() > Duration::from_secs(10 * 60) {
+            self.last_insert = None;
+            self.notify("Nothing to undo", Duration::from_millis(1400));
+            return;
+        }
+        if native::foreground() != hwnd {
+            self.notify(
+                "Go back to the app Vorto wrote into to undo",
+                Duration::from_millis(2000),
+            );
+            return;
+        }
+        self.last_insert = None;
+        self.target_hwnd = hwnd;
+        std::thread::spawn(move || {
+            let _turn = INSERTING.lock().unwrap_or_else(|e| e.into_inner());
+            native::undo(hwnd);
+        });
+        self.show_hud("done", "Undone", Some(Duration::from_millis(1100)));
     }
 
     fn update_event(&mut self, msg: UpdateMsg) {
@@ -1064,6 +1445,7 @@ impl Controller {
     fn start(&mut self, from_app: bool) {
         if self.recorder.is_some()
             || self.pending.is_some()
+            || self.editing.is_some()
             || self.capturing
             || self.engine.phase == Phase::Downloading
         {
@@ -1087,6 +1469,9 @@ impl Controller {
         if self.target_hwnd != 0 {
             self.set_target(self.target_hwnd);
         }
+        self.target_exe = native::exe_name(self.target_hwnd);
+        self.target_title = native::window_title(self.target_hwnd);
+        self.warm_up_ai();
         self.here = self.target_hwnd == 0 && self.main_visible && self.store.settings.onboarded;
         if self.here {
             let _ = self.app.emit("navigate", "home");
@@ -1108,6 +1493,7 @@ impl Controller {
                     String::new()
                 };
                 self.show_hud("listening", name, None);
+                self.sound(Sound::Press);
                 if !matches!(self.engine.phase, Phase::Ready | Phase::Starting) {
                     self.load();
                     // Stop now rather than let the words wait for an engine that is not coming.
@@ -1144,6 +1530,7 @@ impl Controller {
         };
         self.stopped_at = Instant::now();
         hotkey::set_recording(false);
+        self.sound(Sound::Release);
         self.last_used = Instant::now();
         let tap = recorder.tap();
         let rate = tap.rate().max(1) as u64;
@@ -1243,6 +1630,7 @@ impl Controller {
         let command = Command::Transcribe {
             audio: file.path().into(),
             language: self.language(pending.tail_seconds),
+            prompt: self.prompt(),
         };
         if let Err(e) = self.engine.send(command, Phase::Transcribing) {
             self.engine.fail(&e.to_string());
@@ -1253,6 +1641,9 @@ impl Controller {
     fn cancel(&mut self) {
         let was_recording = self.recorder.take().is_some();
         hotkey::set_recording(false);
+        if was_recording {
+            self.sound(Sound::Cancel);
+        }
         hotkey::force_inactive();
         self.dictation += 1;
         self.detected_language = None;
@@ -1400,6 +1791,7 @@ impl Controller {
         let command = Command::Preview {
             audio: file.path().into(),
             language: self.language(seconds),
+            prompt: self.prompt(),
         };
         let phase = self.engine.phase;
         if self.engine.send(command, phase).is_ok() {
@@ -1415,12 +1807,113 @@ impl Controller {
 
     fn deliver(&mut self, text: String, seconds: f32) {
         self.last_used = Instant::now();
-        let text = text.trim().to_string();
+        let text = vocab::replace(text.trim(), &self.store.settings.replacements)
+            .trim()
+            .to_string();
         if text.is_empty() {
             self.notify("No words heard", Duration::from_millis(1600));
             self.here = false;
             return;
         }
+        if self.edit(&text, seconds) {
+            return;
+        }
+        self.finish(text, String::new(), seconds);
+    }
+
+    /// Sends the dictation to AI editing when a style applies to the app it's for. The words
+    /// arrive later as `Msg::Edited`.
+    fn edit(&mut self, text: &str, seconds: f32) -> bool {
+        let settings = &self.store.settings;
+        if !settings.ai_ready() || self.target_hwnd == 0 || self.here {
+            return false;
+        }
+        let ai = &settings.ai;
+        let Some(profile) = ai.profile_for(&self.target_exe, &self.target_title) else {
+            return false;
+        };
+        let Some(provider) = ai.provider(&profile.provider) else {
+            return false;
+        };
+        let timeout = Duration::from_secs(ai.timeout_secs);
+        let job = ai::Job::new(
+            provider,
+            profile,
+            &settings.vocabulary,
+            text.to_string(),
+            timeout,
+        );
+        let name = profile.name.clone();
+        crate::log::write(format!("AI editing with {}", provider.name));
+        self.editing = Some(Editing {
+            dictation: self.dictation,
+            raw: text.to_string(),
+            seconds,
+            started: Instant::now(),
+            timeout,
+        });
+        hotkey::set_escapable(true);
+        self.show_hud("polishing", name, None);
+        let (tx, dictation) = (self.tx.clone(), self.dictation);
+        std::thread::spawn(move || {
+            let result = ai::edit(&job).map_err(|e| format!("{e:#}"));
+            let _ = tx.send(Msg::Edited { dictation, result });
+        });
+        true
+    }
+
+    /// Starts loading a local model for the style this dictation will use.
+    fn warm_up_ai(&self) {
+        let settings = &self.store.settings;
+        if !settings.ai_ready() || self.target_hwnd == 0 {
+            return;
+        }
+        let ai = &settings.ai;
+        let Some(profile) = ai.profile_for(&self.target_exe, &self.target_title) else {
+            return;
+        };
+        let Some(provider) = ai.provider(&profile.provider).filter(|p| p.local()) else {
+            return;
+        };
+        let job = ai::Job::new(
+            provider,
+            profile,
+            &[],
+            String::new(),
+            Duration::from_secs(120),
+        );
+        std::thread::spawn(move || ai::warm_up(&job));
+    }
+
+    fn edited(&mut self, dictation: u64, result: Result<String, String>) {
+        if self.editing.as_ref().map(|e| e.dictation) != Some(dictation) {
+            return;
+        }
+        let Some(editing) = self.editing.take() else {
+            return;
+        };
+        hotkey::set_escapable(false);
+        match result {
+            Ok(text) => {
+                crate::log::write(format!(
+                    "AI editing took {} ms",
+                    editing.started.elapsed().as_millis()
+                ));
+                self.finish(text, editing.raw, editing.seconds);
+            }
+            Err(error) => {
+                crate::log::write(format!("AI editing skipped: {error}"));
+                self.insert_note = Some(if error == "skipped" {
+                    "Inserted as spoken".into()
+                } else {
+                    format!("{error} Inserted as spoken.")
+                });
+                self.finish(editing.raw, String::new(), editing.seconds);
+            }
+        }
+    }
+
+    fn finish(&mut self, text: String, raw: String, seconds: f32) {
         self.dictations += 1;
         self.latest = text.clone();
         let pasting = self.store.settings.paste && native::is_window(self.target_hwnd);
@@ -1429,34 +1922,53 @@ impl Controller {
         } else {
             String::new()
         };
-        if let Err(e) = self.store.add(text.clone(), seconds, app) {
+        if let Err(e) = self.store.add_edited(text.clone(), raw, seconds, app) {
             self.say("error", format!("History couldn't be saved: {e}"));
         }
         let hwnd = self.target_hwnd;
         if pasting {
-            let delivered = text.clone();
-            let mut text = text;
-            if self.store.settings.append_space {
-                text.push(' ');
-            }
-            let paste = self.store.settings.method == "paste";
-            let restore = self.store.settings.restore_clipboard;
-            let tx = self.tx.clone();
-            // Counted until Inserted arrives, so an update waits for the text to land.
-            self.inserting += 1;
-            std::thread::spawn(move || {
-                let _turn = INSERTING.lock().unwrap_or_else(|e| e.into_inner());
-                let outcome = native::insert(&text, hwnd, paste, restore);
-                let _ = tx.send(Msg::Inserted {
-                    outcome,
-                    text: delivered,
-                });
-            });
+            self.insert(text, hwnd, false);
         } else {
             // Does nothing for a dictation into the Vorto window, which shows the text itself.
+            self.insert_note = None;
             self.show_hud("notice", "Kept in Vorto", Some(Duration::from_millis(1400)));
         }
         self.here = false;
+    }
+
+    /// Inserts on a worker thread, one insertion at a time; `Msg::Inserted` reports back.
+    fn insert(&mut self, text: String, hwnd: isize, again: bool) {
+        let delivered = text.clone();
+        let mut text = text;
+        if self.store.settings.append_space {
+            text.push(' ');
+        }
+        let paste = self.store.settings.method == "paste";
+        let restore = self.store.settings.restore_clipboard;
+        let highlight = self.store.settings.highlight;
+        let tx = self.tx.clone();
+        // Counted until Inserted arrives, so an update waits for the text to land.
+        self.inserting += 1;
+        self.last_insert = Some((hwnd, Instant::now()));
+        std::thread::spawn(move || {
+            let turn = INSERTING.lock().unwrap_or_else(|e| e.into_inner());
+            let outcome = native::insert(&text, hwnd, paste, restore);
+            let landed = matches!(outcome, native::Outcome::Inserted);
+            let _ = tx.send(Msg::Inserted {
+                outcome,
+                text: delivered,
+                again,
+            });
+            drop(turn);
+            if highlight && landed {
+                // The app handles the paste on its own schedule.
+                std::thread::sleep(Duration::from_millis(120));
+                let rects = crate::caret::inserted(hwnd, text.chars().count());
+                if !rects.is_empty() {
+                    let _ = tx.send(Msg::Landed(rects));
+                }
+            }
+        });
     }
 
     fn tick(&mut self) {
@@ -1601,10 +2113,22 @@ impl Controller {
         let foreground = native::foreground();
         if foreground != 0 && foreground != self.last_foreign && !native::is_own(foreground) {
             self.last_foreign = foreground;
+            if !native::is_shell(foreground) {
+                self.paste_target = foreground;
+            }
             if !self.busy_dictating() {
                 self.set_target(foreground);
             }
         }
+        let expired = self
+            .editing
+            .as_ref()
+            .filter(|e| e.started.elapsed() > e.timeout + Duration::from_secs(1))
+            .map(|e| e.dictation);
+        if let Some(dictation) = expired {
+            self.edited(dictation, Err("AI editing took too long.".into()));
+        }
+        self.update_tray();
         if let Some(error) = self.recorder.as_ref().and_then(|r| r.error()) {
             // Keep what was captured before the microphone went away.
             self.stop_recording();
@@ -1650,6 +2174,10 @@ impl Controller {
         }
         if self.hud_until.is_some_and(|t| Instant::now() >= t) {
             self.hide_hud();
+        }
+        if self.flash_hide_at.is_some_and(|t| Instant::now() >= t) {
+            self.flash_hide_at = None;
+            native::hide_overlay(self.flash);
         }
         if self.hud_hide_at.is_some_and(|t| Instant::now() >= t) {
             self.hud_hide_at = None;
@@ -1706,6 +2234,7 @@ impl Controller {
         if !self.main_visible && !force {
             return;
         }
+        self.refresh_suggestions();
         let settings = &self.store.settings;
         let today = chrono::Local::now().format("%Y-%m-%d").to_string();
         let snapshot = Snapshot {
@@ -1775,6 +2304,18 @@ impl Controller {
                 .map(|(name, icon)| (name.as_str(), icon.as_str()))
                 .collect(),
             update: &self.update,
+            api_keys: &self.api_keys,
+            providers_local: settings.ai.providers.iter().map(|p| p.local()).collect(),
+            ai_models: &self.ai_models,
+            ai_test: &self.ai_test,
+            extra_shortcuts: settings
+                .shortcuts
+                .all()
+                .iter()
+                .map(|keys| hotkey::names(keys))
+                .collect(),
+            extra_ok: hotkey::extra_ok(),
+            suggestions: &self.suggestions,
         };
         let Ok(json) = serde_json::to_string(&snapshot) else {
             return;
@@ -1785,6 +2326,74 @@ impl Controller {
             }
             let _ = self.app.emit_str_to("main", "state", json.clone());
             self.last_main = json;
+        }
+    }
+
+    /// Glows over the words just inserted: the highlight window covers them, and its page
+    /// draws each line. Skipped when the text runs over a large part of the screen.
+    fn highlight(&mut self, rects: Vec<crate::caret::Rect>) {
+        const PAD: i32 = 18;
+        let rects: Vec<_> = rects.into_iter().take(40).collect();
+        let left = rects.iter().map(|r| r.0).min().unwrap_or(0) - PAD;
+        let top = rects.iter().map(|r| r.1).min().unwrap_or(0) - PAD;
+        let right = rects.iter().map(|r| r.0 + r.2).max().unwrap_or(0) + PAD;
+        let bottom = rects.iter().map(|r| r.1 + r.3).max().unwrap_or(0) + PAD;
+        let (w, h) = (right - left, bottom - top);
+        if rects.is_empty() || w > 3000 || h > 1400 || native::foreground() != self.target_hwnd {
+            return;
+        }
+        let local: Vec<[i32; 4]> = rects
+            .iter()
+            .map(|r| [r.0 - left, r.1 - top, r.2, r.3])
+            .collect();
+        native::show_overlay_at(self.flash, left, top, w, h);
+        let payload = serde_json::json!({ "rects": local, "id": epoch_ms() }).to_string();
+        let _ = self.app.emit_str_to("flash", "flash", payload);
+        self.flash_hide_at = Some(Instant::now() + Duration::from_millis(1300));
+    }
+
+    /// Words from History worth adding to the dictionary, worked out again only when History
+    /// or the dictionary changed.
+    fn refresh_suggestions(&mut self) {
+        let settings = &self.store.settings;
+        let key = (
+            self.store.history.len(),
+            self.store
+                .history
+                .first()
+                .map(|e| e.at.clone())
+                .unwrap_or_default(),
+            settings.vocabulary.len(),
+            settings.dismissed.len(),
+        );
+        if key != self.suggestions_for {
+            self.suggestions = vocab::suggestions(
+                &self.store.history,
+                &settings.vocabulary,
+                &settings.dismissed,
+            );
+            self.suggestions_for = key;
+        }
+    }
+
+    /// Rebuilds the tray menu when what it shows changed: recent dictations and AI editing.
+    fn update_tray(&mut self) {
+        let recent: Vec<String> = self
+            .store
+            .history
+            .iter()
+            .take(5)
+            .map(|e| e.text.clone())
+            .collect();
+        let tray = crate::TrayView {
+            recent,
+            has_latest: !self.latest_text().is_empty(),
+            ai: self.store.settings.ai.enabled,
+        };
+        let shows = format!("{:?}{}{}", tray.recent, tray.has_latest, tray.ai);
+        if shows != self.tray_shows {
+            self.tray_shows = shows;
+            crate::update_tray(&self.app, tray);
         }
     }
 }

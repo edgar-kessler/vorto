@@ -31,7 +31,7 @@ flowchart LR
   controller -->|"update check"| gh[("GitHub Releases")]
 ```
 
-Nothing else talks to the network. Audio and text stay on the PC.
+Nothing else talks to the network, except AI editing when the user turns it on (see [AI editing](#ai-editing)). Audio always stays on the PC.
 
 ## Repository layout
 
@@ -71,6 +71,29 @@ It's a Cargo workspace with three crates, plus the web UI and the landing page.
    - Windows silently drops input sent from a normal app to one running as administrator. Vorto detects that case, keeps the text on the clipboard and says so.
 6. **After.** The text goes into history (unless it's turned off), and the pill shows the outcome: a green check, a red cross or a grey notice.
 
+Between recognition and insertion, the dictionary's replacements are applied (`src/vocab.rs`), and AI editing may rewrite the text.
+
+## AI editing
+
+`app/src/ai.rs` sends the text of a dictation, never audio, to a language model and inserts the reply.
+
+- **Styles** (`AiProfile` in `src/data.rs`) match the program file name or the window title of the window that had focus when the dictation began. The first enabled style that matches wins; a style without apps or titles applies everywhere else.
+- **Providers** speak the OpenAI chat completions API, which Ollama, LM Studio and most services offer, or Anthropic's Messages API. A provider whose address isn't `localhost`, `127.x` or `::1` is refused until the user allows it (`allow_remote`).
+- API keys live in Windows Credential Manager under `Vorto/ai/<provider id>` (`app/src/secret.rs`), never in `settings.json`.
+- The request runs on a worker thread while the pill shows **Polishing**. Esc, a timeout (20 seconds by default) or an error inserts the text as spoken. When the dictation starts, a local model gets a one-token request so it's loaded by the time the user lets go.
+- The system prompt tells the model that the transcript is text to edit, not a message to answer, and lists the dictionary's words. Reasoning blocks, echoed tags and wrapping quotes are removed from the reply.
+- Logs name the provider and the time taken, never the text.
+
+## The highlight over inserted text
+
+After an insertion, a worker asks UI Automation for the focused element's caret range (`TextPattern2`, or the selection of `TextPattern`), moves its start back by the number of inserted characters and reads the range's bounding rectangles, one per line (`app/src/caret.rs`). Chromium turns on UI Automation when first asked, so an empty answer is asked again once. Without either pattern, the Win32 system caret from `GetGUIThreadInfo` is used. The `flash` window, transparent, click-through and never focused like the pill, is placed over the lines, and its page draws a fading glow. It's skipped when the window lost focus meanwhile or the text covers most of the screen.
+
+## Extra shortcuts and the tray
+
+The dictation shortcut uses low-level hooks. The extra shortcuts (paste, undo, copy the last dictation, turn AI editing on or off) are registered with `RegisterHotKey` on the hook thread, which receives their `WM_HOTKEY` messages. Windows refuses a combination another app has registered, and Settings says so. Undo sends Ctrl+Z to the window Vorto last wrote into, if it still has focus.
+
+The tray menu is rebuilt on the main thread when the last five dictations or the AI editing state change. Pasting from the tray goes to the last window of another app, skipping the taskbar, which takes focus while the menu is open.
+
 <kbd>Esc</kbd> cancels at any point while a dictation runs. A dictation stops on its own after two minutes.
 
 Audio reaches the engine as temporary WAV files opened with `FILE_FLAG_DELETE_ON_CLOSE`, so Windows deletes them when the last handle closes, even if Vorto is killed.
@@ -94,6 +117,8 @@ Commands (`op`) and events (`event`) from `src/protocol.rs`:
 | `transcribe` | `audio` (WAV path), `language` | `result` with `text`, or `error` |
 | `preview` | `audio`, `language` | `preview` with `text`, `ok` and an optional detected `language`. A failed preview is reported with `ok: false`, never as an error, so it can't end a dictation. |
 | `download` | `root`, `model` | `progress` with `detail` and `fraction`, then `downloaded` or `error` |
+
+`transcribe` and `preview` also take an optional `prompt`: the dictionary's words, which Whisper uses as its initial prompt and Parakeet ignores.
 
 ```json
 {"op":"transcribe","audio":"C:\\Users\\you\\AppData\\Local\\Temp\\vorto-A1b2C3.wav","language":"auto"}
@@ -152,6 +177,7 @@ The engine turns off Windows error dialogs and writes a line to `engine.log` whe
 |---|---|---|
 | `main` | `index.html` | Dictate, History, Voice models, Settings, and onboarding. No system title bar. |
 | `hud` | `index.html#hud` | The recording pill: 620 × 220, transparent, always on top, never takes focus, not in the taskbar |
+| `flash` | `index.html#flash` | The glow over inserted text, placed and sized over it, with the same window styles as the pill |
 
 ## The interface
 
@@ -173,8 +199,8 @@ Everything lives in `%LOCALAPPDATA%\app.vorto.desktop`, named after the app iden
 
 | Path | Content |
 |---|---|
-| `settings.json` | Settings |
-| `history.json` | The last 100 dictations, if history is on |
+| `settings.json` | Settings, including the dictionary and AI editing styles. API keys are in Windows Credential Manager. |
+| `history.json` | The last 100 dictations, if history is on, with the words as spoken when AI editing changed them |
 | `models\<id>\` | Verified voice models |
 | `models\.<id>.partial\` | A download in progress |
 | `vorto.log`, `engine.log` | Diagnostics only, never transcripts |

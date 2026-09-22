@@ -105,6 +105,62 @@ pub fn target(hwnd: HWND) -> Option<Target> {
     Some(found)
 }
 
+/// The program file name in lower case, such as "outlook.exe", for matching AI editing styles.
+pub fn exe_name(hwnd: HWND) -> String {
+    exe_path(hwnd)
+        .and_then(|path| {
+            std::path::Path::new(&path)
+                .file_name()
+                .map(|n| n.to_string_lossy().to_lowercase())
+        })
+        .unwrap_or_default()
+}
+
+/// The window title, such as a browser tab's page title. Never logged.
+pub fn window_title(hwnd: HWND) -> String {
+    use windows_sys::Win32::UI::WindowsAndMessaging::GetWindowTextW;
+    if !is_window(hwnd) {
+        return String::new();
+    }
+    let mut buffer = [0u16; 512];
+    let len = unsafe { GetWindowTextW(hwnd, buffer.as_mut_ptr(), buffer.len() as i32) };
+    String::from_utf16_lossy(&buffer[..len.max(0) as usize])
+}
+
+/// The taskbar and its tray, which take focus while the tray menu opens.
+pub fn is_shell(hwnd: HWND) -> bool {
+    use windows_sys::Win32::UI::WindowsAndMessaging::GetClassNameW;
+    let mut buffer = [0u16; 64];
+    let len = unsafe { GetClassNameW(hwnd, buffer.as_mut_ptr(), buffer.len() as i32) };
+    let class = String::from_utf16_lossy(&buffer[..len.max(0) as usize]);
+    matches!(
+        class.as_str(),
+        "Shell_TrayWnd"
+            | "Shell_SecondaryTrayWnd"
+            | "NotifyIconOverflowWindow"
+            | "TopLevelWindowForOverflowXamlIsland"
+            | "Progman"
+            | "WorkerW"
+    )
+}
+
+/// Sends Ctrl+Z to the window, if it still has focus, to take back the last insertion.
+pub fn undo(hwnd: HWND) -> bool {
+    wait_for_modifiers(Duration::from_millis(1500));
+    if !is_window(hwnd) || unsafe { GetForegroundWindow() } != hwnd {
+        return false;
+    }
+    let z_scan = unsafe { MapVirtualKeyW(0x5A, 0) } as u16;
+    let ctrl_scan = unsafe { MapVirtualKeyW(0xA2, 0) } as u16;
+    send(&[
+        key(0xA2, ctrl_scan, 0),
+        key(0x5A, z_scan, 0),
+        key(0x5A, z_scan, KEYEVENTF_KEYUP),
+        key(0xA2, ctrl_scan, KEYEVENTF_KEYUP),
+    ]);
+    true
+}
+
 fn exe_path(hwnd: HWND) -> Option<String> {
     if !is_window(hwnd) {
         return None;
@@ -876,6 +932,24 @@ pub fn show_overlay(hwnd: HWND, near: HWND, size: (i32, i32), bottom: bool) {
         if current() != placed {
             place(0);
         }
+    }
+}
+/// Shows an overlay over a screen area, in physical pixels, without taking focus. The first
+/// move lets Windows rescale the window for that monitor, the second sets the real size.
+pub fn show_overlay_at(hwnd: HWND, x: i32, y: i32, w: i32, h: i32) {
+    unsafe {
+        prepare_overlay(hwnd);
+        SetWindowPos(hwnd, HWND_TOPMOST, x, y, w, h, SWP_NOACTIVATE);
+        SetWindowPos(
+            hwnd,
+            HWND_TOPMOST,
+            x,
+            y,
+            w,
+            h,
+            SWP_NOACTIVATE | SWP_SHOWWINDOW,
+        );
+        ShowWindow(hwnd, SW_SHOWNOACTIVATE);
     }
 }
 pub fn hide_overlay(hwnd: HWND) {

@@ -32,8 +32,8 @@
     return out;
   });
   // Entries are not unique (same words in the same minute), so rows are tracked by position.
-  function copy(entry, key) {
-    act("copy", { text: entry.text });
+  function copy(entry, key, text = entry.text) {
+    act("copy", { text });
     copied = key;
     setTimeout(() => (copied = ""), 1400);
   }
@@ -95,11 +95,12 @@
     <h3 class="section-title">{label(group.date)}</h3>
     <div class="list">
       {#each group.items as entry, i (i)}
+        <div class="entry-wrap">
         <button class="entry" onclick={() => copy(entry, `${gi}:${i}`)}>
           <AppIcon name={entry.app} size={30} />
           <span class="body">
             <span class="text">{entry.text}</span>
-            <span class="meta">{entry.at.split(" ")[1]} · {entry.app || "Kept in Vorto"}</span>
+            <span class="meta">{entry.at.split(" ")[1]} · {entry.app || "Kept in Vorto"}{entry.raw ? " · Edited by AI" : ""}</span>
           </span>
           <span class="action">
             {#if copied === `${gi}:${i}`}
@@ -109,6 +110,10 @@
             {/if}
           </span>
         </button>
+        {#if entry.raw}
+          <button class="original" onclick={() => copy(entry, `${gi}:${i}`, entry.raw)} title={entry.raw}>Copy as spoken</button>
+        {/if}
+        </div>
       {/each}
     </div>
   {/each}
@@ -175,6 +180,32 @@
     padding: 4px;
     border-radius: var(--r-lg);
     background: var(--group);
+  }
+  .entry-wrap {
+    position: relative;
+  }
+  .entry-wrap .entry {
+    width: 100%;
+  }
+  .original {
+    position: absolute;
+    right: 12px;
+    bottom: 9px;
+    height: 22px;
+    padding: 0 9px;
+    border-radius: 999px;
+    background: var(--control);
+    font-size: 12px;
+    font-weight: 540;
+    opacity: 0;
+    transition: opacity var(--fast) ease;
+  }
+  .entry-wrap:hover .original,
+  .original:focus-visible {
+    opacity: 1;
+  }
+  .original:hover {
+    background: var(--control-hover);
   }
   .entry {
     display: flex;

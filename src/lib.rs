@@ -5,3 +5,4 @@ pub mod data;
 pub mod protocol;
 pub mod provider;
 pub mod supervisor;
+pub mod vocab;

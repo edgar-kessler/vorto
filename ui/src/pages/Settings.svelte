@@ -5,6 +5,7 @@
   import Select from "../lib/Select.svelte";
   import Segmented from "../lib/Segmented.svelte";
   import ShortcutRecorder from "../lib/ShortcutRecorder.svelte";
+  import ComboRecorder from "../lib/ComboRecorder.svelte";
   import Icon from "../lib/Icon.svelte";
 
   let s = $derived($app);
@@ -26,6 +27,17 @@
 
   function set(key, value) {
     saveSettings({ [key]: value });
+  }
+
+  // In the order of Shortcuts::all in the app.
+  const extras = [
+    ["paste_last", "Paste last dictation", "Inserts your last dictation again, into the app you are in."],
+    ["undo_last", "Undo last insertion", "Takes back what Vorto just wrote, while you are still in that app."],
+    ["toggle_ai", "Turn AI editing on or off", "The pill says which it is now."],
+    ["copy_last", "Copy last dictation", "Puts your last dictation on the clipboard."],
+  ];
+  function setExtra(key, keys) {
+    saveSettings({ shortcuts: { ...settings.shortcuts, [key]: keys } });
   }
 
   const languages = [
@@ -88,6 +100,25 @@
   </div>
 </div>
 
+<h3 class="section-title">More shortcuts</h3>
+<div class="group">
+  {#each extras as [key, title, text], i}
+    <div class="row">
+      <div class="label">
+        <strong>{title}</strong>
+        {#if !s.extraOk[i]}
+          <span class="fail">Another app already uses this combination. Choose another one.</span>
+        {:else}
+          <span>{text}</span>
+        {/if}
+      </div>
+      <div class="control">
+        <ComboRecorder label={title} keys={settings.shortcuts[key]} names={s.extraShortcuts[i]} ok={s.extraOk[i]} onchange={(keys) => setExtra(key, keys)} />
+      </div>
+    </div>
+  {/each}
+</div>
+
 <h3 class="section-title">Recognition</h3>
 <div class="group">
   <div class="row">
@@ -131,6 +162,13 @@
       <span>{parakeet || (s.gpuBuild && settings.gpu) ? "Shows your words as you speak." : "Needs Parakeet or a graphics card."}</span>
     </div>
     <div class="control"><Toggle label="Live preview" checked={settings.live_preview} onchange={(v) => set("live_preview", v)} /></div>
+  </div>
+  <div class="row">
+    <div class="label">
+      <strong>Sounds</strong>
+      <span>A key click when you start and stop, and a chime when the text is in place.</span>
+    </div>
+    <div class="control"><Toggle label="Sounds" checked={settings.sounds} onchange={(v) => set("sounds", v)} /></div>
   </div>
   <div class="row">
     <div class="label">
@@ -188,6 +226,15 @@
         <span>Keep dictating without touching the keyboard.</span>
       </div>
       <div class="control"><Toggle label="Add a space after" checked={settings.append_space} onchange={(v) => set("append_space", v)} /></div>
+    </div>
+  {/if}
+  {#if settings.paste}
+    <div class="row" transition:slide={{ duration: 220 }}>
+      <div class="label">
+        <strong>Show where text lands</strong>
+        <span>A short glow over the words Vorto just inserted, in apps that say where they are.</span>
+      </div>
+      <div class="control"><Toggle label="Show where text lands" checked={settings.highlight} onchange={(v) => set("highlight", v)} /></div>
     </div>
   {/if}
   <div class="row">

@@ -172,6 +172,196 @@ pub struct Settings {
     pub auto_update: bool,
     /// Start with Windows, as last chosen in Vorto. Windows' own list decides whether it runs.
     pub autostart: bool,
+    /// A short glow over the words just inserted, where the app can say where they are.
+    pub highlight: bool,
+    /// Names and terms to spell the user's way: Whisper hears them better, and AI editing
+    /// keeps them.
+    pub vocabulary: Vec<String>,
+    /// Words suggested from History that the user turned down.
+    pub dismissed: Vec<String>,
+    /// Applied to every dictation, before AI editing.
+    pub replacements: Vec<Replacement>,
+    pub ai: AiSettings,
+    /// Extra shortcuts, each a list of virtual-key codes like `hotkey`, empty when unset.
+    pub shortcuts: Shortcuts,
+    /// Key clicks when dictation starts and ends, and a chime when the text is in place.
+    pub sounds: bool,
+}
+#[derive(Clone, Serialize, Deserialize, Default, PartialEq)]
+#[serde(default)]
+pub struct Replacement {
+    pub from: String,
+    pub to: String,
+}
+#[derive(Clone, Serialize, Deserialize, Default, PartialEq)]
+#[serde(default)]
+pub struct Shortcuts {
+    pub paste_last: Vec<u32>,
+    pub undo_last: Vec<u32>,
+    pub toggle_ai: Vec<u32>,
+    pub copy_last: Vec<u32>,
+}
+impl Shortcuts {
+    /// In the order of their ids for Windows' RegisterHotKey.
+    pub fn all(&self) -> [&Vec<u32>; 4] {
+        [
+            &self.paste_last,
+            &self.undo_last,
+            &self.toggle_ai,
+            &self.copy_last,
+        ]
+    }
+}
+
+/// AI editing: a language model rewrites the dictation before it's inserted.
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct AiSettings {
+    pub enabled: bool,
+    pub providers: Vec<AiProvider>,
+    /// Tried in order; the first whose apps or window titles match is used. One without any
+    /// is used everywhere else.
+    pub profiles: Vec<AiProfile>,
+    /// After this long the dictation is inserted as spoken.
+    pub timeout_secs: u64,
+}
+#[derive(Clone, Serialize, Deserialize, Default, PartialEq)]
+#[serde(default)]
+pub struct AiProvider {
+    pub id: String,
+    pub name: String,
+    /// "openai" for every OpenAI-compatible API, including Ollama and LM Studio, or "anthropic".
+    pub kind: String,
+    pub base_url: String,
+    pub model: String,
+    /// The user agreed to send dictated text to this provider. Only needed for providers
+    /// outside this PC.
+    pub allow_remote: bool,
+}
+impl AiProvider {
+    /// Runs on this PC, so text never leaves it.
+    pub fn local(&self) -> bool {
+        let url = self.base_url.trim();
+        let rest = url.split_once("://").map_or(url, |(_, rest)| rest);
+        let host = rest.split(['/', '?', '#']).next().unwrap_or("");
+        let host = match host.strip_prefix('[') {
+            Some(v6) => v6.split(']').next().unwrap_or(""),
+            None => host.rsplit_once(':').map_or(host, |(h, _)| h),
+        };
+        let host = host.to_ascii_lowercase();
+        host == "localhost" || host.starts_with("127.") || host == "::1"
+    }
+}
+#[derive(Clone, Serialize, Deserialize, Default, PartialEq)]
+#[serde(default)]
+pub struct AiProfile {
+    pub id: String,
+    pub name: String,
+    pub enabled: bool,
+    /// What to do with the dictation, in the user's words.
+    pub prompt: String,
+    /// Provider id; empty uses the first provider.
+    pub provider: String,
+    /// Overrides the provider's model when set.
+    pub model: String,
+    /// Program file names such as "outlook.exe".
+    pub apps: Vec<String>,
+    /// Parts of window titles, such as "Gmail" for a browser tab.
+    pub titles: Vec<String>,
+}
+impl AiProfile {
+    fn everywhere(&self) -> bool {
+        self.apps.iter().all(|a| a.trim().is_empty())
+            && self.titles.iter().all(|t| t.trim().is_empty())
+    }
+    fn matches(&self, exe: &str, title: &str) -> bool {
+        let title = title.to_lowercase();
+        self.apps
+            .iter()
+            .map(|a| a.trim())
+            .any(|a| !a.is_empty() && a.eq_ignore_ascii_case(exe))
+            || self
+                .titles
+                .iter()
+                .map(|t| t.trim().to_lowercase())
+                .any(|t| !t.is_empty() && title.contains(&t))
+    }
+}
+impl AiSettings {
+    /// The style for a window: the first matching one, else the first that applies everywhere.
+    pub fn profile_for(&self, exe: &str, title: &str) -> Option<&AiProfile> {
+        let enabled = || self.profiles.iter().filter(|p| p.enabled);
+        enabled()
+            .find(|p| !p.everywhere() && p.matches(exe, title))
+            .or_else(|| enabled().find(|p| p.everywhere()))
+    }
+    /// A profile's provider; an empty id means the first one.
+    pub fn provider(&self, id: &str) -> Option<&AiProvider> {
+        if id.is_empty() {
+            return self.providers.first();
+        }
+        self.providers.iter().find(|p| p.id == id)
+    }
+}
+impl Default for AiSettings {
+    fn default() -> Self {
+        let list = |items: &[&str]| items.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        Self {
+            enabled: false,
+            providers: vec![AiProvider {
+                id: "ollama".into(),
+                name: "Ollama".into(),
+                kind: "openai".into(),
+                base_url: "http://localhost:11434/v1".into(),
+                model: String::new(),
+                allow_remote: false,
+            }],
+            profiles: vec![
+                AiProfile {
+                    id: "email".into(),
+                    name: "Email".into(),
+                    enabled: true,
+                    prompt: "Write this as a polished, polite email body: a greeting line, short paragraphs and a closing line. Remove filler words, fix grammar and punctuation. Match the formality of the transcript (for example Sie or du in German). Don't add a subject line, a signature name or facts that weren't spoken.".into(),
+                    apps: list(&["outlook.exe", "olk.exe", "thunderbird.exe"]),
+                    titles: list(&["Outlook", "Gmail", "Thunderbird"]),
+                    ..Default::default()
+                },
+                AiProfile {
+                    id: "prompt".into(),
+                    name: "AI prompt".into(),
+                    enabled: true,
+                    prompt: "The user is dictating a prompt for an AI assistant. Clean it up: remove filler words, false starts and repetitions, fix grammar, and give it a clear structure, with short paragraphs or a list when several points are made. Keep every requirement and detail. Don't answer or carry out the prompt.".into(),
+                    apps: list(&["claude.exe", "chatgpt.exe"]),
+                    titles: list(&["Claude", "ChatGPT", "Gemini", "Perplexity", "Copilot"]),
+                    ..Default::default()
+                },
+                AiProfile {
+                    id: "chat".into(),
+                    name: "Chat".into(),
+                    enabled: true,
+                    prompt: "This is a casual chat message. Fix grammar and punctuation and remove filler words. Keep it short and informal, with no greeting or sign-off unless one was spoken.".into(),
+                    apps: list(&[
+                        "slack.exe",
+                        "ms-teams.exe",
+                        "whatsapp.exe",
+                        "discord.exe",
+                        "telegram.exe",
+                        "signal.exe",
+                    ]),
+                    titles: list(&["WhatsApp", "Slack", "Discord", "Teams"]),
+                    ..Default::default()
+                },
+                AiProfile {
+                    id: "clean".into(),
+                    name: "Clean up".into(),
+                    enabled: true,
+                    prompt: "Fix grammar, spelling and punctuation. Remove filler words (such as um, uh, äh, ähm, also, halt, sozusagen, like, you know), false starts and repetitions. Otherwise keep the wording and tone.".into(),
+                    ..Default::default()
+                },
+            ],
+            timeout_secs: 20,
+        }
+    }
 }
 impl Default for Settings {
     fn default() -> Self {
@@ -194,6 +384,13 @@ impl Default for Settings {
             overlay: true,
             auto_update: true,
             autostart: false,
+            vocabulary: Vec::new(),
+            dismissed: Vec::new(),
+            replacements: Vec::new(),
+            ai: AiSettings::default(),
+            shortcuts: Shortcuts::default(),
+            sounds: true,
+            highlight: true,
         }
     }
 }
@@ -221,6 +418,55 @@ impl Settings {
         if ![0, 5, 15, 30].contains(&self.idle_minutes) {
             self.idle_minutes = 0;
         }
+        tidy(&mut self.vocabulary, 500);
+        tidy(&mut self.dismissed, 500);
+        for r in &mut self.replacements {
+            r.from = r.from.trim().chars().take(80).collect();
+            r.to = r.to.trim().chars().take(400).collect();
+        }
+        self.replacements.retain(|r| !r.from.is_empty());
+        self.replacements.truncate(500);
+        for keys in [
+            &mut self.shortcuts.paste_last,
+            &mut self.shortcuts.undo_last,
+            &mut self.shortcuts.toggle_ai,
+            &mut self.shortcuts.copy_last,
+        ] {
+            normalize_hotkey(keys);
+            if keys.len() > 4 || keys.iter().any(|&k| k == 0 || k > 0xFE) {
+                keys.clear();
+            }
+        }
+        let ai = &mut self.ai;
+        ai.timeout_secs = ai.timeout_secs.clamp(3, 120);
+        for p in &mut ai.providers {
+            if !["openai", "anthropic"].contains(&p.kind.as_str()) {
+                p.kind = "openai".into();
+            }
+            p.base_url = p.base_url.trim().trim_end_matches('/').to_string();
+            p.model = p.model.trim().to_string();
+        }
+        for p in &mut ai.profiles {
+            p.model = p.model.trim().to_string();
+            tidy(&mut p.apps, 50);
+            tidy(&mut p.titles, 50);
+        }
+    }
+}
+/// Trimmed, without empty entries or case-insensitive duplicates, at most `max`.
+fn tidy(list: &mut Vec<String>, max: usize) {
+    for item in list.iter_mut() {
+        *item = item.trim().chars().take(80).collect();
+    }
+    list.retain(|w| !w.is_empty());
+    let mut seen = std::collections::HashSet::new();
+    list.retain(|w| seen.insert(w.to_lowercase()));
+    list.truncate(max);
+}
+impl Settings {
+    /// AI editing is on and has somewhere to send text.
+    pub fn ai_ready(&self) -> bool {
+        self.ai.enabled && !self.ai.providers.is_empty()
     }
 }
 pub const VK_RCONTROL: u32 = 0xA3;
@@ -262,6 +508,9 @@ pub struct Entry {
     pub app: String,
     pub at: String,
     pub seconds: f32,
+    /// The words as spoken, when AI editing changed them.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub raw: String,
 }
 
 pub struct Store {
@@ -318,10 +567,21 @@ impl Store {
         atomic_json(&self.root.join("settings.json"), &self.settings)
     }
     pub fn add(&mut self, text: String, seconds: f32, app: String) -> Result<()> {
+        self.add_edited(text, String::new(), seconds, app)
+    }
+    /// `raw` is the dictation as spoken when AI editing changed it, else empty.
+    pub fn add_edited(
+        &mut self,
+        text: String,
+        raw: String,
+        seconds: f32,
+        app: String,
+    ) -> Result<()> {
         if self.settings.history {
             self.history.insert(
                 0,
                 Entry {
+                    raw: if raw == text { String::new() } else { raw },
                     text,
                     app,
                     at: chrono::Local::now().format("%Y-%m-%d %H:%M").to_string(),
@@ -407,6 +667,32 @@ mod tests {
         assert!(s.toggle);
         assert_eq!(s.hotkey, vec![VK_RCONTROL]);
         assert_eq!(s.model, DEFAULT_MODEL);
+    }
+    #[test]
+    fn styles_match_apps_and_titles() {
+        let ai = AiSettings::default();
+        let id = |exe, title| ai.profile_for(exe, title).map(|p| p.id.as_str());
+        assert_eq!(id("OUTLOOK.EXE", "Inbox"), Some("email"));
+        assert_eq!(id("chrome.exe", "Posteingang - Gmail"), Some("email"));
+        assert_eq!(id("chrome.exe", "New chat - Claude"), Some("prompt"));
+        assert_eq!(id("notepad.exe", "Untitled"), Some("clean"));
+        let mut off = ai.clone();
+        off.profiles
+            .iter_mut()
+            .for_each(|p| p.enabled = p.id != "clean");
+        assert!(off.profile_for("notepad.exe", "").is_none());
+    }
+    #[test]
+    fn local_providers_are_recognized() {
+        let p = |url: &str| AiProvider {
+            base_url: url.into(),
+            ..Default::default()
+        };
+        assert!(p("http://localhost:11434/v1").local());
+        assert!(p("http://127.0.0.1:1234/v1").local());
+        assert!(p("http://[::1]:8080").local());
+        assert!(!p("https://api.openai.com/v1").local());
+        assert!(!p("https://localhost.evil.com/v1").local());
     }
     #[test]
     fn atomic_save_replaces_existing_file() {

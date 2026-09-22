@@ -3,10 +3,13 @@ import "./app.css";
 import { mount } from "svelte";
 import App from "./App.svelte";
 import Hud from "./Hud.svelte";
+import Flash from "./Flash.svelte";
 import LogoPreview from "./lib/LogoPreview.svelte";
 
 const hud = location.hash === "#hud";
+const flash = location.hash === "#flash";
 const query = new URLSearchParams(location.search);
 const logos = query.has("logos");
-document.documentElement.classList.toggle("hud", hud);
-mount(hud ? Hud : logos ? LogoPreview : App, { target: document.getElementById("app") });
+// Both overlays have a transparent page.
+document.documentElement.classList.toggle("hud", hud || flash);
+mount(hud ? Hud : flash ? Flash : logos ? LogoPreview : App, { target: document.getElementById("app") });

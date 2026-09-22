@@ -1,16 +1,29 @@
 <script>
-  // Vorto's mark: two quote marks over a text caret, your words becoming text.
+  // Vorto's mark: a key with your voice on it. Hold the key, talk, and it types.
   // Moods: idle, listening, thinking, happy, sleep, worried.
   let { size = 48, mood = "idle", level = 0, onDark = false, tile = false } = $props();
 
-  // A squared quote mark with a rounded shoulder.
-  const quote = "M26 46c0-11 8.5-20 19.5-20H49v14.5h-3.5c-4.4 0-7.5 3.2-7.5 7.5v1.5h11V80H26V46Z";
+  // Five bars read well from 40px up; below that three thicker ones stay sharp.
+  const full = [
+    [38.5, 12],
+    [47.5, 22],
+    [56.5, 32],
+    [65.5, 22],
+    [74.5, 12],
+  ];
+  const small = [
+    [40, 16],
+    [54.5, 30],
+    [69, 16],
+  ];
   let l = $derived(Math.min(1, Math.max(0, level)));
   let simple = $derived(size < 40);
+  let bars = $derived(simple ? small : full);
+  let w = $derived(simple ? 11 : 7);
 </script>
 
 <svg
-  viewBox="0 0 120 120"
+  viewBox={tile ? "0 0 120 120" : "18 18 84 84"}
   width={size}
   height={size}
   class="mark {mood}"
@@ -23,168 +36,138 @@
   {#if tile}
     <rect x="4" y="4" width="112" height="112" rx="30" class="tile-bg" />
   {/if}
-  <g class="quotes">
-    <g class="q left"><path d={quote} /></g>
-    <g class="q right"><path d={quote} transform="translate(45 0)" /></g>
-  </g>
-  {#if mood === "thinking" && !simple}
-    <g class="dots">
-      <circle cx="44" cy="96" r="5" />
-      <circle cx="60" cy="96" r="5" />
-      <circle cx="76" cy="96" r="5" />
+  <rect class="lip" x="22" y="30" width="76" height="66" rx="18" />
+  <g class="cap">
+    <rect class="face" x="22" y="24" width="76" height="62" rx="18" />
+    {#if !simple}
+      <rect class="dish" x="28" y="30" width="64" height="48" rx="13" />
+    {/if}
+    <g class="bars">
+      {#each bars as [x, h], i}
+        <rect class="bar" style="--i:{i}" {x} y={54 - h / 2} width={w} height={h} rx={w / 2} />
+      {/each}
     </g>
-  {:else}
-    <rect class="caret" x="26" y="91" width="68" height="9" rx="4.5" />
-  {/if}
+  </g>
 </svg>
 
 <style>
   .mark {
     display: block;
     overflow: visible;
-    --quote: #ff6250;
-    --caret: var(--ink, #111113);
-  }
-  .on-dark {
-    --caret: #ffffff;
-  }
-  .tile {
-    --quote: #ff6250;
-    --caret: #ffffff;
   }
   .tile-bg {
     fill: #141416;
   }
-  .q path {
-    fill: var(--quote);
+  .lip {
+    fill: #b0372a;
   }
-  .q {
-    transform-box: view-box;
-    transform-origin: 60px 80px;
+  .face {
+    fill: #ff6250;
+  }
+  .dish {
+    fill: #ff7363;
+  }
+  .bar {
+    fill: #ffffff;
+    transform-box: fill-box;
+    transform-origin: center;
     transition: transform 90ms linear;
   }
-  .caret {
-    fill: var(--caret);
-    transform-box: fill-box;
-    transform-origin: left center;
-    transition: transform 120ms ease-out;
-  }
-  .dots circle {
-    fill: var(--caret);
-    animation: typing 1s ease-in-out infinite;
-  }
-  .dots circle:nth-child(2) {
-    animation-delay: 0.15s;
-  }
-  .dots circle:nth-child(3) {
-    animation-delay: 0.3s;
+  .cap {
+    transition: transform 90ms linear;
   }
 
-  /* Resting: the quotes float gently for a moment, then hold still. An endless animation
-     would keep the window drawing frames, and cost power, the whole time Vorto runs. */
-  .idle .left {
-    animation: float-a 4.8s ease-in-out 2;
+  /* Resting: the bars hum for a moment, then hold still. An endless animation would keep
+     the window drawing frames, and cost power, the whole time Vorto runs. */
+  .idle .bar {
+    animation: hum 2.4s ease-in-out 2;
+    animation-delay: calc(var(--i) * 0.12s);
   }
-  .idle .right {
-    animation: float-b 4.8s ease-in-out 2;
-  }
-  .simple .caret {
-    animation: none !important;
-  }
-  .simple.idle .q {
+  .simple.idle .bar {
     animation: none;
   }
 
-  /* Listening: the quotes answer your voice and the caret types along. */
-  .listening .left {
-    transform: translateY(calc(var(--l) * -9px)) rotate(calc(var(--l) * -6deg));
+  /* Listening: the key is held down and the bars follow your voice. */
+  .listening .cap {
+    transform: translateY(calc(var(--l) * 4px + 2px));
   }
-  .listening .right {
-    transform: translateY(calc(var(--l) * -5px)) rotate(calc(var(--l) * 5deg));
+  .listening .bar {
+    transform: scaleY(calc(0.4 + var(--l) * 0.95));
   }
-  .listening .caret {
-    transform: scaleX(calc(0.28 + var(--l) * 0.72));
+  .listening .bar:nth-child(even) {
+    transform: scaleY(calc(0.5 + var(--l) * 0.7));
   }
-
-  .thinking .quotes {
-    transform-origin: 60px 60px;
-    animation: ponder 1.4s ease-in-out infinite;
+  .listening .bar:nth-child(3) {
+    transform: scaleY(calc(0.35 + var(--l) * 1));
   }
 
-  .happy .quotes {
-    transform-origin: 60px 64px;
-    animation: pop 520ms cubic-bezier(0.22, 1, 0.36, 1);
+  /* Thinking: the key is let go and the bars ripple while the text is written. */
+  .thinking .bar {
+    animation: ripple 1s ease-in-out infinite;
+    animation-delay: calc(var(--i) * 0.12s);
+  }
+
+  /* Happy: one firm key press. */
+  .happy .cap {
+    animation: press 480ms cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   .sleep {
     opacity: 0.55;
   }
-
-  .worried .left {
-    transform: rotate(-10deg) translateX(-2px);
-  }
-  .worried .right {
-    transform: rotate(10deg) translateX(2px);
-  }
-  .worried .caret {
-    fill: #ea2a42;
+  .sleep .bar {
+    transform: scaleY(0.35);
   }
 
-  @keyframes float-a {
+  .worried .bar {
+    transform: scaleY(0.3);
+  }
+  .worried .cap {
+    animation: shake 420ms ease-in-out;
+  }
+
+  @keyframes hum {
     0%,
     100% {
-      transform: translateY(0);
+      transform: scaleY(1);
     }
     50% {
-      transform: translateY(-3px);
+      transform: scaleY(0.6);
     }
   }
-  @keyframes float-b {
+  @keyframes ripple {
     0%,
     100% {
-      transform: translateY(-2px);
-    }
-    50% {
-      transform: translateY(1px);
-    }
-  }
-  @keyframes typing {
-    0%,
-    70%,
-    100% {
-      transform: translateY(0);
-      opacity: 0.35;
-    }
-    35% {
-      transform: translateY(-6px);
-      opacity: 1;
-    }
-  }
-  @keyframes ponder {
-    0%,
-    100% {
-      transform: rotate(-4deg);
-    }
-    50% {
-      transform: rotate(4deg);
-    }
-  }
-  @keyframes pop {
-    0% {
-      transform: scale(1);
+      transform: scaleY(0.35);
     }
     40% {
-      transform: scale(1.18) translateY(-4px);
+      transform: scaleY(1.1);
     }
+  }
+  @keyframes press {
+    0%,
     100% {
-      transform: scale(1);
+      transform: translateY(0);
+    }
+    35% {
+      transform: translateY(6px);
+    }
+  }
+  @keyframes shake {
+    0%,
+    100% {
+      transform: translateX(0);
+    }
+    25% {
+      transform: translateX(-3px);
+    }
+    75% {
+      transform: translateX(3px);
     }
   }
   @media (prefers-reduced-motion: reduce) {
-    .q,
-    .caret,
-    .quotes,
-    .dots circle {
+    .bar,
+    .cap {
       animation: none !important;
     }
   }

@@ -2,7 +2,7 @@
   import Icon from "./Icon.svelte";
   import { fly } from "svelte/transition";
   // `onopen` runs each time the menu opens, e.g. to refresh the options.
-  let { value = $bindable(), options, onchange, onopen, disabled = false, width = 210, placeholder = "", label } = $props();
+  let { value = $bindable(), options, onchange, onopen, disabled = false, width = 210, placeholder = "", label, align = "right" } = $props();
   let open = $state(false);
   let root;
   let trigger;
@@ -43,7 +43,7 @@
     <Icon name="chevron" size={15} />
   </button>
   {#if open}
-    <div class="menu" role="listbox" aria-label={label} transition:fly={{ y: -4, duration: 160 }}>
+    <div class="menu" class:left={align === "left"} role="listbox" aria-label={label} transition:fly={{ y: -4, duration: 160 }}>
       {#each options as option}
         <button class="item" class:selected={option.value === value} role="option" aria-selected={option.value === value} onclick={() => pick(option)}>
           <span>{option.label}</span>
@@ -109,6 +109,10 @@
     background: var(--surface);
     border: 1px solid var(--border);
     box-shadow: var(--shadow-pop);
+  }
+  .menu.left {
+    right: auto;
+    left: 0;
   }
   .item {
     display: flex;

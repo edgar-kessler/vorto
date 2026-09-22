@@ -1,16 +1,119 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+mod ai;
+mod caret;
 mod controller;
 mod hotkey;
 mod log;
 mod native;
+mod secret;
+mod sound;
 mod update;
 
 use std::sync::{mpsc, Arc, Mutex};
 use tauri::{
-    menu::{Menu, MenuItem},
+    menu::{CheckMenuItem, IsMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    AppHandle, Manager, WebviewWindow, WindowEvent,
+    AppHandle, Emitter, Manager, WebviewWindow, WindowEvent,
 };
+
+/// What the tray menu shows besides its fixed items.
+pub struct TrayView {
+    /// The newest dictations, newest first.
+    pub recent: Vec<String>,
+    pub has_latest: bool,
+    pub ai: bool,
+}
+
+/// A menu label for a dictation: its first words on one line.
+fn menu_label(text: &str) -> String {
+    let line = text.split_whitespace().collect::<Vec<_>>().join(" ");
+    let mut label: String = line.chars().take(48).collect();
+    if line.chars().count() > 48 {
+        label.push('…');
+    }
+    // An ampersand would mark the next letter as the menu shortcut.
+    label.replace("&", "&&")
+}
+
+fn tray_menu(app: &AppHandle, view: &TrayView) -> tauri::Result<Menu<tauri::Wry>> {
+    let paste = MenuItem::with_id(
+        app,
+        "paste_last",
+        "Paste last dictation",
+        view.has_latest,
+        None::<&str>,
+    )?;
+    let copy = MenuItem::with_id(
+        app,
+        "copy_last",
+        "Copy last dictation",
+        view.has_latest,
+        None::<&str>,
+    )?;
+    let recent_items = view
+        .recent
+        .iter()
+        .enumerate()
+        .map(|(i, text)| {
+            MenuItem::with_id(
+                app,
+                format!("recent:{i}"),
+                menu_label(text),
+                true,
+                None::<&str>,
+            )
+        })
+        .collect::<tauri::Result<Vec<_>>>()?;
+    let recent_refs: Vec<&dyn IsMenuItem<tauri::Wry>> = recent_items
+        .iter()
+        .map(|i| i as &dyn IsMenuItem<tauri::Wry>)
+        .collect();
+    let recent = Submenu::with_items(app, "Paste recent", !recent_refs.is_empty(), &recent_refs)?;
+    let ai = CheckMenuItem::with_id(app, "ai", "AI editing", true, view.ai, None::<&str>)?;
+    let history = MenuItem::with_id(app, "nav:history", "History", true, None::<&str>)?;
+    let dictionary = MenuItem::with_id(app, "nav:dictionary", "Dictionary", true, None::<&str>)?;
+    let ai_page = MenuItem::with_id(app, "nav:ai", "AI editing settings", true, None::<&str>)?;
+    let settings = MenuItem::with_id(app, "nav:settings", "Settings", true, None::<&str>)?;
+    let updates = MenuItem::with_id(
+        app,
+        "check_updates",
+        "Check for updates",
+        true,
+        None::<&str>,
+    )?;
+    let open = MenuItem::with_id(app, "open", "Open Vorto", true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, "quit", "Quit Vorto", true, None::<&str>)?;
+    let line = || PredefinedMenuItem::separator(app);
+    Menu::with_items(
+        app,
+        &[
+            &open,
+            &line()?,
+            &paste,
+            &copy,
+            &recent,
+            &line()?,
+            &ai,
+            &ai_page,
+            &dictionary,
+            &history,
+            &settings,
+            &line()?,
+            &updates,
+            &quit,
+        ],
+    )
+}
+
+/// Replaces the tray menu. Menus belong to the main thread.
+pub fn update_tray(app: &AppHandle, view: TrayView) {
+    let handle = app.clone();
+    let _ = app.run_on_main_thread(move || {
+        if let (Some(tray), Ok(menu)) = (handle.tray_by_id("vorto"), tray_menu(&handle, &view)) {
+            let _ = tray.set_menu(Some(menu));
+        }
+    });
+}
 
 fn tell_controller(app: &AppHandle, msg: controller::Msg) {
     if let Some(handle) = app.try_state::<controller::Handle>() {
@@ -268,10 +371,21 @@ fn setup(
     native::prepare_overlay(hud_hwnd);
     let hud_size = hud.outer_size()?;
     let hud_size = (hud_size.width as i32, hud_size.height as i32);
+    let flash = app
+        .get_webview_window("flash")
+        .ok_or("The highlight window is missing.")?;
+    let flash_hwnd = flash.hwnd()?.0 as isize;
+    let _ = flash.set_ignore_cursor_events(true);
+    native::prepare_overlay(flash_hwnd);
 
-    let open = MenuItem::with_id(app, "open", "Open Vorto", true, None::<&str>)?;
-    let quit = MenuItem::with_id(app, "quit", "Quit Vorto", true, None::<&str>)?;
-    let menu = Menu::with_items(app, &[&open, &quit])?;
+    let menu = tray_menu(
+        app.handle(),
+        &TrayView {
+            recent: Vec::new(),
+            has_latest: false,
+            ai: store.settings.ai.enabled,
+        },
+    )?;
     let mut tray = TrayIconBuilder::with_id("vorto")
         .tooltip("Vorto")
         .menu(&menu)
@@ -279,7 +393,14 @@ fn setup(
         .on_menu_event(|app, event| match event.id.as_ref() {
             "open" => show_main(app),
             "quit" => app.exit(0),
-            _ => {}
+            id => {
+                if let Some(page) = id.strip_prefix("nav:") {
+                    let _ = app.emit_to("main", "navigate", page);
+                    show_main(app);
+                } else {
+                    tell_controller(app, controller::Msg::Tray(id.to_string()));
+                }
+            }
         })
         .on_tray_icon_event(|tray, event| {
             if let TrayIconEvent::Click {
@@ -302,6 +423,7 @@ fn setup(
         published,
         store,
         (hud_hwnd, hud_size),
+        flash_hwnd,
         hidden,
     );
     std::thread::Builder::new()

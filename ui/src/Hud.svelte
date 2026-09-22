@@ -60,6 +60,14 @@
       {:else if shown.mode === "writing"}
         <span class="mark"><Mark size={24} mood="thinking" onDark /></span>
         <span class="status shimmer">Writing</span>
+      {:else if shown.mode === "polishing"}
+        <span class="mark"><Mark size={24} mood="thinking" onDark /></span>
+        <span class="status shimmer">Polishing</span>
+        {#if shown.text}
+          <span class="divider"></span>
+          <span class="app"><Icon name="sparkles" size={14} /><span>{shown.text}</span></span>
+        {/if}
+        <span class="time">Esc skips</span>
       {:else if shown.mode === "done"}
         <span class="badge ok"><Icon name="check" size={12} stroke={3} /></span>
         <span class="status">{shown.text}</span>

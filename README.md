@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/logo.svg" width="96" height="96" alt="Vorto">
+<img src="assets/logo-animated.svg" width="96" height="96" alt="Vorto">
 
 # Vorto
 
@@ -35,7 +35,9 @@ Vorto writes it down right where you were typing.
 - **Long dictations stay quick.** Vorto recognizes finished sentences while you're still talking, so the text is in place a moment after you let go.
 - **Your shortcut, your way.** Any key or key combination, even a single key like Menu. Hold to talk, or press once to start and again to finish. <kbd>Esc</kbd> cancels.
 - **The right voice model for your PC.** Parakeet v3 for 25 European languages on any modern processor, or Whisper for 99 languages.
-- **History.** Your last 100 dictations, ready to copy again. Or none, if you turn it off.
+- **Your words, your spelling.** A dictionary for names and terms, and replacements such as "new paragraph" for a line break.
+- **AI editing, if you want it.** A language model cleans up each dictation in the style that fits the app: a polite email in Outlook, a clear prompt in Claude or ChatGPT. It runs on your PC with Ollama or LM Studio, or with a provider you choose.
+- **History.** Your last 100 dictations, ready to copy or paste again. Or none, if you turn it off.
 - **Quiet until you need it.** Vorto waits in the tray, can start with Windows, follows light and dark mode and keeps itself up to date.
 
 ## Download & install
@@ -96,6 +98,8 @@ Change the shortcut in **Settings**. Any key or combination works, including a s
 
 Vorto pastes the text in one go, or types it out if you prefer (**Insertion method**). When it pastes, your clipboard is put back afterwards, and the dictation stays out of Windows clipboard history.
 
+A short glow shows where the words landed (**Show where text lands**). Browsers and apps built on them mark the inserted lines; apps that only say where the cursor is get a glowing bar there. Nothing in the app is selected or changed.
+
 ### The recording pill
 
 <p align="center">
@@ -117,19 +121,43 @@ Download one inside the app, once. After that, recognition runs on your PC.
 
 Parakeet runs on the processor through ONNX Runtime. Whisper runs through whisper.cpp, on the graphics card via Vulkan (NVIDIA, AMD and Intel) when there is one.
 
+### Dictionary
+
+Add names and terms under **Dictionary**, such as your company or a colleague's name. Whisper listens for them, and AI editing spells them your way. Vorto also suggests words you use often that look like names or terms.
+
+**Replacements** swap words in every dictation: "Vortho" becomes "Vorto", and "new paragraph" can become a line break (write `\n`).
+
+### AI editing
+
+Turn on **AI editing** and a language model polishes each dictation before Vorto inserts it. Meanwhile the pill says **Polishing**; press <kbd>Esc</kbd> to insert your words as spoken instead. If the model takes too long or fails, Vorto inserts them as spoken too.
+
+- **Styles** decide what happens, by app or window title: **Email** for Outlook, Gmail and Thunderbird, **AI prompt** for Claude, ChatGPT and Gemini, **Chat** for Slack, Teams, WhatsApp and Discord, and **Clean up** everywhere else. Change their instructions or add your own. Window titles work for websites, since browsers show the page title.
+- **Providers:** [Ollama](https://ollama.com) or LM Studio on your PC, or OpenAI, Anthropic, Google Gemini, Groq, Mistral, OpenRouter, DeepSeek, xAI, Together AI and any other OpenAI-compatible address. **Load models** lists what a provider offers.
+- API keys are kept in Windows Credential Manager, not in Vorto's settings file.
+- **Try it** runs a style on sample text, so you can compare models before you dictate.
+
+Small local models are fast but make mistakes. Models from about 3 billion parameters, such as `qwen2.5:3b` or `gemma3:4b` in Ollama, follow the instructions much more reliably. Vorto loads a local model while you speak, so it's ready when you let go.
+
+### The tray and more shortcuts
+
+The tray icon's menu pastes or copies your last dictation, pastes one of the last five again, turns AI editing on or off, and opens History, the Dictionary or Settings.
+
+Under **Settings → More shortcuts** you can set key combinations to paste your last dictation again, undo the last insertion, copy the last dictation and turn AI editing on or off.
+
 ### History and settings
 
-**History** keeps your last 100 dictations on your PC, with the app each one went into, ready to copy again. Turn off **Save history** in Settings to keep nothing.
+**History** keeps your last 100 dictations on your PC, with the app each one went into, ready to copy again. When AI editing changed a dictation, **Copy as spoken** gives you your original words. Turn off **Save history** in Settings to keep nothing.
 
 **Settings** also covers the microphone, the language, starting with Windows, whether the model stays loaded, and updates. Closing the window keeps Vorto in the tray. To quit, choose **Quit Vorto** from the tray icon's menu.
 
 ## Privacy
 
-Vorto listens, recognizes and inserts text on your PC. Audio and text never leave it.
+Vorto listens, recognizes and inserts text on your PC. Your voice never leaves it, and neither does the text, unless you choose an online provider for AI editing.
 
 - There's no account and no telemetry.
 - The microphone is off unless you're dictating or testing it in Settings.
-- Vorto uses the network for two things only: downloading voice models from Hugging Face, and checking GitHub Releases for updates. Model files are pinned to a fixed commit and checked by size and SHA-256 before they're used.
+- Vorto uses the network for two things: downloading voice models from Hugging Face, and checking GitHub Releases for updates. Model files are pinned to a fixed commit and checked by size and SHA-256 before they're used.
+- AI editing is off until you turn it on. With Ollama or LM Studio it stays on your PC. An online provider receives the text of your dictations, never the audio, and only after you allow it for that provider.
 - Recordings reach the voice engine as temporary files that Windows deletes as soon as they're closed, even if Vorto is ended.
 - Logs are for diagnostics only. They never contain what you said.
 

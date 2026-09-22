@@ -21,11 +21,16 @@ pub enum Command {
     Transcribe {
         audio: PathBuf,
         language: String,
+        /// Words to spell this way; Whisper uses them, Parakeet ignores them.
+        #[serde(default, skip_serializing_if = "String::is_empty")]
+        prompt: String,
     },
     /// A quick look at the recording so far; failures never become errors.
     Preview {
         audio: PathBuf,
         language: String,
+        #[serde(default, skip_serializing_if = "String::is_empty")]
+        prompt: String,
     },
     Download {
         root: PathBuf,

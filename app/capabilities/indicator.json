@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "indicator",
-  "description": "The recording pill only listens for its state; it controls no windows.",
-  "windows": ["hud"],
+  "description": "The recording pill and the highlight over inserted text only listen for their state; they control no windows.",
+  "windows": ["hud", "flash"],
   "permissions": ["core:event:default"]
 }

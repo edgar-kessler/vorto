@@ -19,10 +19,22 @@ export function startMock({ app, level, route }) {
     phase: "ready", detail: "", progress: -1, downloading: null, downloadError: null,
     recording: hudMode === "listening", recordingSince: Date.now() - Number(params.get("elapsed") ?? 0) * 1000, recordingLimit: 120,
     dictatingHere: false, live: "", dictations: 0,
-    settings: { gpu: true, model: "parakeet-v3", language: "auto", microphone: "", hotkey: [163], toggle: false, live_preview: true, hud_position: "top", onboarded: !params.get("onboarding"), idle_minutes: 0, paste: true, method: "paste", append_space: false, history: params.get("history") !== "off", restore_clipboard: true, overlay: true, auto_update: true, autostart: false },
+    settings: { gpu: true, model: "parakeet-v3", language: "auto", microphone: "", hotkey: [163], toggle: false, live_preview: true, sounds: true, highlight: true, hud_position: "top", onboarded: !params.get("onboarding"), idle_minutes: 0, paste: true, method: "paste", append_space: false, history: params.get("history") !== "off", restore_clipboard: true, overlay: true, auto_update: true, autostart: false,
+      vocabulary: ["Vorto", "Tauri", "Kessler"], dismissed: [], replacements: [{ from: "new paragraph", to: "\n\n" }],
+      shortcuts: { paste_last: [0x11, 0x12, 0x56], undo_last: [], toggle_ai: [], copy_last: [] },
+      ai: {
+        enabled: true, timeout_secs: 20,
+        providers: [{ id: "ollama", name: "Ollama", kind: "openai", base_url: "http://localhost:11434/v1", model: "qwen2.5:0.5b", allow_remote: false }],
+        profiles: [
+          { id: "email", name: "Email", enabled: true, prompt: "Write this as a polished, polite email body.", provider: "", model: "", apps: ["outlook.exe", "olk.exe"], titles: ["Outlook", "Gmail"] },
+          { id: "prompt", name: "AI prompt", enabled: true, prompt: "Clean up a prompt for an AI assistant.", provider: "", model: "", apps: ["claude.exe"], titles: ["Claude", "ChatGPT"] },
+          { id: "clean", name: "Clean up", enabled: true, prompt: "Fix grammar and remove filler words.", provider: "", model: "", apps: [], titles: [] },
+        ],
+      },
+    },
     shortcut: ["Right Ctrl"], capturing: false, hookOk: params.get("hook") !== "0", models,
     history: [
-      { text: "Hi Sarah, thanks for the quick reply. Thursday at ten works great for me, see you then.", at: day(0, "14:32"), seconds: 6.1, app: "Google Chrome" },
+      { text: "Hi Sarah, thanks for the quick reply. Thursday at ten works great for me, see you then.", raw: "hi sarah ähm thanks for the quick reply thursday at ten works great see you then", at: day(0, "14:32"), seconds: 6.1, app: "Google Chrome" },
       { text: "Remind me to send the updated pricing sheet to the team before the Friday review.", at: day(0, "11:05"), seconds: 4.8, app: "Slack" },
       { text: "Could you send me last month's invoice one more time? Thanks so much!", at: day(1, "18:20"), seconds: 5.2, app: "WhatsApp" },
       { text: "Refactor the settings loader so invalid values fall back to safe defaults.", at: day(3, "09:12"), seconds: 4.0, app: "Visual Studio Code" },
@@ -33,6 +45,8 @@ export function startMock({ app, level, route }) {
     microphones: ["Microphone (SM950 Microphone)", "Headset (Arctis 7)"],
     dataDir: String.raw`C:\Users\you\AppData\Local\app.vorto.desktop`, version: "1.0.0", gpuBuild: true,
     micTest: false, autostart: false, appIcons: {},
+    apiKeys: {}, providersLocal: [true], aiModels: {}, aiTest: { id: 0, status: "", text: "", millis: 0 },
+    extraShortcuts: [["Ctrl", "Alt", "V"], [], [], []], extraOk: [true, true, true, true], suggestions: ["GitHub", "Parakeet"],
     update: { status: params.get("update") ?? "idle", version: params.get("update") ? "1.1.0" : "", progress: 0.42 },
   };
   if (params.get("welcome")) { s.models = models.map((m) => ({ ...m, installed: false })); s.phase = "setup"; }
@@ -102,6 +116,10 @@ export function startMock({ app, level, route }) {
     if (a.type === "setAutostart") s.autostart = a.on;
     if (a.type === "checkForUpdates") { s.update = { status: "checking", version: "", progress: -1 }; setTimeout(() => { s.update.status = "latest"; push(); }, 900); }
     if (a.type === "installUpdate") { s.update.status = "installing"; }
+    if (a.type === "saveSettings") s.providersLocal = s.settings.ai.providers.map((p) => ["//localhost", "//127."].some((h) => p.base_url.includes(h)));
+    if (a.type === "setApiKey") s.apiKeys[a.provider] = !!a.key;
+    if (a.type === "listModels") { s.aiModels[a.provider] = { status: "loading", models: [], error: "" }; setTimeout(() => { s.aiModels[a.provider] = { status: "done", models: ["gemma3:1b", "qwen2.5:0.5b", "qwen2.5:3b"], error: "" }; push(); }, 600); }
+    if (a.type === "testAi") { s.aiTest = { id: s.aiTest.id + 1, status: "running", text: "", millis: 0 }; setTimeout(() => { s.aiTest = { ...s.aiTest, status: "done", text: "Können wir das Meeting morgen auf 10 Uhr verschieben? Danke!", millis: 840 }; push(); }, 900); }
     push();
   };
   push();

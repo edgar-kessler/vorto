@@ -37,13 +37,18 @@ export function act(type, payload = {}) {
 // A save carries the whole settings object. Edits from the last moments are carried along,
 // because the snapshot may not show them yet and would undo them.
 const recentEdits = new Map();
-export function saveSettings(patch) {
+/** The settings including edits the snapshot may not show yet: build changes on these. */
+export function currentSettings() {
   const now = Date.now();
   for (const [key, edit] of recentEdits) if (now - edit.at > 2000) recentEdits.delete(key);
-  for (const [key, value] of Object.entries(patch)) recentEdits.set(key, { value, at: now });
   const settings = { ...get(app).settings };
   for (const [key, edit] of recentEdits) settings[key] = edit.value;
-  act("saveSettings", { settings });
+  return settings;
+}
+export function saveSettings(patch) {
+  const now = Date.now();
+  for (const [key, value] of Object.entries(patch)) recentEdits.set(key, { value, at: now });
+  act("saveSettings", { settings: currentSettings() });
 }
 
 export async function startsHidden() {

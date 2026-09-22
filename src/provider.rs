@@ -32,6 +32,8 @@ pub struct AudioRequest {
     /// Normalized 16 kHz mono PCM. Providers must not retain it after completion.
     pub samples: Vec<f32>,
     pub language: Option<String>,
+    /// Names and terms the user spells a certain way, as a hint; empty for none.
+    pub prompt: String,
     /// Remote providers must reject requests without explicit transfer consent.
     pub allow_remote: bool,
 }
@@ -66,6 +68,7 @@ mod tests {
         let mut r = AudioRequest {
             samples: vec![],
             language: None,
+            prompt: String::new(),
             allow_remote: false,
         };
         assert!(check_transfer(&p, &r).is_err());
