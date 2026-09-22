@@ -24,7 +24,7 @@ export function startMock({ app, level, route }) {
       shortcuts: { paste_last: [0x11, 0x12, 0x56], undo_last: [], toggle_ai: [], copy_last: [] },
       ai: {
         enabled: true, timeout_secs: 20,
-        providers: params.get("ai") === "empty" ? [] : [{ id: "ollama", name: "Ollama", kind: "openai", base_url: "http://localhost:11434/v1", model: "qwen2.5:0.5b", allow_remote: false }],
+        providers: params.get("ai") === "empty" ? [] : [{ id: "ollama", name: "Ollama", kind: "openai", base_url: "http://localhost:11434/v1", model: "qwen2.5:3b", allow_remote: false }],
         profiles: ["email", "chat", "prompt", "notes", "formal", "clean"].map((id) => ({ id, name: id, enabled: id === "email" || id === "clean", prompt: "", provider: "", model: "", apps: id === "email" ? ["olk.exe"] : [], titles: id === "email" ? ["Gmail"] : [], everywhere: id === "clean" })),
       },
     },
@@ -35,11 +35,11 @@ export function startMock({ app, level, route }) {
       { text: "Could you send me last month's invoice one more time? Thanks so much!", at: day(1, "18:20"), seconds: 5.2, app: "WhatsApp" },
       { text: "Refactor the settings loader so invalid values fall back to safe defaults.", at: day(3, "09:12"), seconds: 4.0, app: "Visual Studio Code" },
     ],
-    wordsToday: 1284, latest: "", notice: { id: 0, text: "", kind: "info", topic: "" },
+    wordsToday: 31, latest: "", notice: { id: 0, text: "", kind: "info", topic: "" },
     target: { name: "Google Chrome", icon: "" },
     hud: { mode: hudMode ?? "hidden", text: params.get("text") ?? hudText[hudMode] ?? "", live: params.get("live") ?? "" },
     microphones: ["Microphone (SM950 Microphone)", "Headset (Arctis 7)"],
-    dataDir: String.raw`C:\Users\you\AppData\Local\app.vorto.desktop`, version: "1.0.0", gpuBuild: true,
+    dataDir: String.raw`C:\Users\you\AppData\Local\app.vorto.desktop`, version: "1.0.2", gpuBuild: true,
     micTest: false, autostart: false, appIcons: {},
     apiKeys: {}, providersLocal: [true], aiModels: {}, aiTest: { id: 0, status: "", text: "", millis: 0 },
     apps: [

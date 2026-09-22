@@ -7,7 +7,7 @@
 **Talk into any app on your PC. Your voice never leaves it.**
 
 Local, open-source dictation for Windows. Hold a shortcut, speak and let go:<br>
-Vorto writes it down right where you were typing.
+Vorto writes it down right where you were typing, and can polish it with AI on the way.
 
 [![Latest release](https://img.shields.io/github/v/release/edgar-kessler/vorto?label=release&color=ff6250)](https://github.com/edgar-kessler/vorto/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/edgar-kessler/vorto/total?color=6c6c74)](https://github.com/edgar-kessler/vorto/releases)
@@ -22,29 +22,60 @@ Vorto writes it down right where you were typing.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/dictate-dark.png">
-  <img src="docs/images/dictate-light.png" width="860" alt="The Vorto window on its Dictate page: Hold Right Ctrl and speak in any app, with today's word and dictation count.">
+  <img src="docs/images/dictate-light.png" width="860" alt="The Vorto window on its Dictate page: Hold Right Ctrl and speak in any app.">
 </picture>
 
 </div>
 
 ## Highlights
 
-- **Works in any app.** Mail, chats, documents, the browser: wherever you can type, Vorto pastes or types your words.
-- **Watch the words arrive.** A small pill at the top or bottom of the screen shows your words while you speak, and the app they're going into.
-- **Stays on your PC.** Recognition runs locally. No account, no uploads, no telemetry.
-- **Long dictations stay quick.** Vorto recognizes finished sentences while you're still talking, so the text is in place a moment after you let go.
-- **Your shortcut, your way.** Any key or key combination, even a single key like Menu. Hold to talk, or press once to start and again to finish. <kbd>Esc</kbd> cancels.
-- **The right voice model for your PC.** Parakeet v3 for 25 European languages on any modern processor, or Whisper for 99 languages.
-- **Your words, your spelling.** A dictionary for names and terms, and replacements such as "new paragraph" for a line break.
-- **AI editing, if you want it.** A language model rewrites each dictation the way you describe for that app, say a polite email in Outlook or a clear prompt in Claude. It runs on your PC with Ollama or LM Studio, or with a provider you choose.
-- **History.** Your last 100 dictations, ready to copy or paste again. Or none, if you turn it off.
-- **Quiet until you need it.** Vorto waits in the tray, can start with Windows, follows light and dark mode and keeps itself up to date.
+- **Works in any app.** Mail, chats, documents, the browser: wherever you can type, Vorto pastes or types your words. A small pill shows them while you speak.
+- **Stays on your PC.** Recognition runs locally with Parakeet v3 or Whisper. No account, no uploads, no telemetry.
+- **Quick, even for long dictations.** Finished sentences are recognized while you're still talking, so the text is in place a moment after you let go.
+- **AI editing, if you want it.** Presets turn what you said into a polite email in Outlook, a clear prompt in Claude or tidy notes, with a model on your PC or a provider you choose.
+- **Your words, your spelling.** A dictionary for names and terms, replacements, and layout by voice: "new line", "as bullet points".
+- **See what it saves you.** Stats show the time saved compared with typing, and History keeps your last 100 dictations, grouped by app.
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/images/ai-editing-dark.png">
+        <img src="docs/images/ai-editing-light.png" alt="AI editing page: Ollama as the default provider and the presets Email, Chat message, AI prompt, Notes and lists and Formal writing.">
+      </picture>
+      <p align="center"><sub><b>AI editing</b></sub></p>
+    </td>
+    <td width="50%" valign="top">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/images/stats-dark.png">
+        <img src="docs/images/stats-light.png" alt="Stats page: 5 h 15 min saved, words, dictations, time spoken and a chart of the last 30 days.">
+      </picture>
+      <p align="center"><sub><b>Stats</b></sub></p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/images/history-dark.png">
+        <img src="docs/images/history-light.png" alt="History page with dictations grouped by the app they went into.">
+      </picture>
+      <p align="center"><sub><b>History</b></sub></p>
+    </td>
+    <td width="50%" valign="top">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/images/voice-models-dark.png">
+        <img src="docs/images/voice-models-light.png" alt="Voice models page with Parakeet v3 in use and three Whisper models, each with speed and accuracy.">
+      </picture>
+      <p align="center"><sub><b>Voice models</b></sub></p>
+    </td>
+  </tr>
+</table>
 
 ## Download & install
 
 1. Download **[Vorto-Setup.exe](https://github.com/edgar-kessler/vorto/releases/latest/download/Vorto-Setup.exe)** from the [latest release](https://github.com/edgar-kessler/vorto/releases/latest).
 2. Run it. Vorto installs for your account into `%LOCALAPPDATA%\Vorto` and doesn't need administrator rights. If Microsoft Edge WebView2 is missing, the installer adds it.
-3. The short onboarding helps you download a voice model (once) and pick your shortcut.
+3. The short setup helps you download a voice model (once), test your microphone, pick your shortcut and, if you like, connect AI editing.
 4. Click into any text field, hold <kbd>Right Ctrl</kbd>, speak and let go.
 
 > [!NOTE]
@@ -64,49 +95,17 @@ Processors without AVX2, such as the Celeron N4000, N4500 and N5100 or the Penti
 
 ## Using Vorto
 
-<table>
-  <tr>
-    <td width="33%" valign="top">
-      <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="docs/images/voice-models-dark.png">
-        <img src="docs/images/voice-models-light.png" alt="Voice models page with Parakeet v3 in use and three Whisper models.">
-      </picture>
-      <p align="center"><sub><b>Voice models</b></sub></p>
-    </td>
-    <td width="33%" valign="top">
-      <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="docs/images/history-dark.png">
-        <img src="docs/images/history-light.png" alt="History page listing recent dictations with the app each went into.">
-      </picture>
-      <p align="center"><sub><b>History</b></sub></p>
-    </td>
-    <td width="33%" valign="top">
-      <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="docs/images/settings-dark.png">
-        <img src="docs/images/settings-light.png" alt="Settings page with the dictation shortcut, recording style and recognition options.">
-      </picture>
-      <p align="center"><sub><b>Settings</b></sub></p>
-    </td>
-  </tr>
-</table>
-
 ### Dictate
 
-Hold your shortcut in any app, speak and let go. Your words go where the cursor was. <kbd>Esc</kbd> cancels a dictation, and nothing is kept. A dictation can be up to two minutes long.
+Hold your shortcut in any app, speak and let go. Your words go where the cursor was, and a short glow shows where they landed. <kbd>Esc</kbd> cancels, and nothing is kept. A dictation can be up to two minutes long.
 
-Change the shortcut in **Settings**. Any key or combination works, including a single key like <kbd>Menu</kbd>. **Recording style** switches between holding the shortcut and pressing it once to start and again to finish. To try Vorto without another app, use **Dictate here** on the Dictate page.
-
-Vorto pastes the text in one go, or types it out if you prefer (**Insertion method**). When it pastes, your clipboard is put back afterwards, and the dictation stays out of Windows clipboard history.
-
-A short glow shows where the words landed (**Show where text lands**). Browsers and apps built on them mark the inserted lines; apps that only say where the cursor is get a glowing bar there. Nothing in the app is selected or changed.
-
-### The recording pill
+Any key or combination works as the shortcut, including a single key like <kbd>Menu</kbd>. Hold it while you speak, or press once to start and again to finish (**Recording style**). Vorto pastes the text in one go and puts your clipboard back afterwards, or types it out if you prefer. Dictations stay out of Windows clipboard history.
 
 <p align="center">
-  <img src="docs/images/recording-pill.png" width="620" alt="The dark recording pill: Listening, Google Chrome, 0:06, and the words Thanks for the quick reply. Thursday at ten works great for me.">
+  <img src="docs/images/recording-pill.png" width="620" alt="The dark recording pill: Listening, Google Chrome, a timer, and the words Thanks for the quick reply. Thursday at ten works great for me.">
 </p>
 
-While you speak, the pill shows the app your words go into, a timer and the words as they come in. When you let go it shows a check once the text is in place. It sits at the top or the bottom of the screen (**Indicator position**), and **Live preview** turns the words off if you'd rather not see them.
+The pill at the top or bottom of the screen shows the app your words go into, a timer and the words as they come in, then a check once the text is in place.
 
 ### Voice models
 
@@ -121,39 +120,27 @@ Download one inside the app, once. After that, recognition runs on your PC.
 
 Parakeet runs on the processor through ONNX Runtime. Whisper runs through whisper.cpp, on the graphics card via Vulkan (NVIDIA, AMD and Intel) when there is one.
 
-### Dictionary
-
-Add names and terms under **Dictionary**, such as your company or a colleague's name. Whisper listens for them, and AI editing spells them your way. Vorto also suggests words you use often that look like names or terms.
-
-**Replacements** swap words in every dictation: "Vortho" becomes "Vorto", and "new paragraph" can become a line break (write `\n`).
-
 ### AI editing
 
-Turn on **AI editing** and a language model polishes each dictation before Vorto inserts it. Meanwhile the pill says **Polishing**; press <kbd>Esc</kbd> to insert your words as spoken instead. If the model takes too long or fails, Vorto inserts them as spoken too.
+Turn on **AI editing** and a language model rewrites each dictation before Vorto inserts it. The pill says **Polishing** meanwhile; <kbd>Esc</kbd> inserts your words as spoken instead, and so does a model that's slow or fails.
 
-- **Presets** say what happens: **Email**, **Chat message**, **AI prompt**, **Notes and lists**, **Formal writing** and **Clean up**. Turn on the ones you want and pick their apps from every app you've dictated into, with its icon. For websites, add a word from the browser tab's title, such as Gmail. One preset can also cover every app no other preset is for, and you can add your own wishes to any of them.
-- **Layout by voice:** say "new line", "three lines, the first says …" or "as bullet points", and AI editing lays the text out that way. Line breaks arrive as real line breaks, typed as Shift+Enter so chat apps don't send early.
-- **Providers:** [Ollama](https://ollama.com) or LM Studio on your PC, which Vorto finds on its own, or OpenAI, Anthropic, Google Gemini, Groq, Mistral, OpenRouter, DeepSeek, xAI, Together AI and any other OpenAI-compatible address. Pick one, paste your key and choose a model from the list the provider sends, with names, context sizes and prices from OpenRouter's public catalog where known. You can also type any model ID.
-- API keys are kept in Windows Credential Manager, not in Vorto's settings file.
-- **Try it** runs a preset on sample text, so you can compare models before you dictate. The default provider is marked; presets use its model unless you pick another.
+- **Presets:** Email, Chat message, AI prompt, Notes and lists, Formal writing and Clean up. Turn on the ones you want, pick their apps from the ones you've dictated into, or a website by a word from its tab title, such as Gmail. One preset can cover every other app, and you can add your own wishes to each. Email leaves the sign-off to your email signature.
+- **Layout by voice:** say "new line", "three lines, the first says …" or "as bullet points", and the text is laid out that way.
+- **Providers:** [Ollama](https://ollama.com) or LM Studio on your PC, found on their own, or OpenAI, Anthropic, Google Gemini, Groq, Mistral, OpenRouter, DeepSeek, xAI, Together AI and any OpenAI-compatible address. Paste a key, pick a model from the provider's list, or type any model ID. The default provider is marked, and presets use its model unless you choose another. API keys are kept in Windows Credential Manager.
 
 Small local models are fast but make mistakes. Models from about 3 billion parameters, such as `qwen2.5:3b` or `gemma3:4b` in Ollama, follow the instructions much more reliably. Vorto loads a local model while you speak, so it's ready when you let go.
 
-### Stats
+### Dictionary, Stats and History
 
-**Stats** shows how much time dictation saved you compared with typing at your own speed, words and dictations, time saved on each of the last 30 days and how long you've spoken into each app. It keeps only numbers, never text, and counts even with History off.
+- **Dictionary:** names and terms Vorto should spell your way (Whisper listens for them, AI editing keeps them), with suggestions from your dictations. **Replacements** swap words in every dictation, and `\n` stands for a line break.
+- **Stats:** the time dictation saved you compared with typing at your speed, words, dictations, the last 30 days and speaking time by app. Only numbers, never text.
+- **History:** your last 100 dictations, grouped by app or by day, ready to copy again. **Copy as spoken** gives you the original words when AI editing changed them. Turn off **Save history** to keep nothing.
 
-### The tray and more shortcuts
+### Tray, shortcuts and settings
 
-The tray icon's menu pastes or copies your last dictation, pastes one of the last five again, turns AI editing on or off, and opens History, the Dictionary or Settings.
+The tray icon's menu pastes or copies your last dictation, pastes one of the last five again and turns AI editing on or off. **Settings → More shortcuts** sets key combinations for the same, plus undoing the last insertion.
 
-Under **Settings → More shortcuts** you can set key combinations to paste your last dictation again, undo the last insertion, copy the last dictation and turn AI editing on or off.
-
-### History and settings
-
-**History** keeps your last 100 dictations on your PC, grouped by the app each one went into or by day, ready to copy again. When AI editing changed a dictation, **Copy as spoken** gives you your original words. Turn off **Save history** in Settings to keep nothing.
-
-**Settings** also covers light or dark appearance (or following Windows), the microphone, the language, starting with Windows, whether the model stays loaded, and updates. **Reset everything** deletes your settings, dictionary, AI editing setup, API keys, History and Stats and starts the setup again; downloaded voice models stay. Closing the window keeps Vorto in the tray. To quit, choose **Quit Vorto** from the tray icon's menu.
+**Settings** also covers appearance (light, dark or like Windows), the microphone, the language, sounds, starting with Windows, whether the model stays loaded, and updates. **Reset everything** deletes your settings, dictionary, AI editing setup, API keys, History and Stats and starts the setup again; downloaded voice models stay. Closing the window keeps Vorto in the tray; **Quit Vorto** is in the tray icon's menu.
 
 ## Privacy
 
@@ -250,6 +237,7 @@ In `%LOCALAPPDATA%\app.vorto.desktop`. Open it from **Settings → About → Dat
 
 - `settings.json`: your settings
 - `history.json`: your last 100 dictations
+- `stats.json` and `apps.json`: numbers for Stats and the apps you dictated into, never text
 - `models\`: downloaded voice models
 - `vorto.log` and `engine.log`: diagnostics, never transcripts
 
@@ -311,5 +299,6 @@ Vorto stands on the work of others:
 - [Whisper](https://github.com/openai/whisper) by OpenAI (MIT), through [whisper.cpp](https://github.com/ggml-org/whisper.cpp) by ggml-org (MIT)
 - [ONNX Runtime](https://github.com/microsoft/onnxruntime) (MIT), through the [`ort`](https://github.com/pykeio/ort) crate
 - [Tauri](https://tauri.app), [Svelte](https://svelte.dev) and the [Inter](https://rsms.me/inter/) typeface (OFL)
+- AI provider logos from [LobeHub Icons](https://github.com/lobehub/lobe-icons) (MIT)
 
-The installer includes `THIRD-PARTY-NOTICES.txt` with the licenses of everything built into Vorto. NVIDIA, Parakeet, OpenAI and Whisper are trademarks of their respective owners. Vorto isn't affiliated with them.
+The installer includes `THIRD-PARTY-NOTICES.txt` with the licenses of everything built into Vorto. NVIDIA, Parakeet, OpenAI, Whisper and the names and logos of the AI providers are trademarks of their respective owners. Vorto isn't affiliated with them.
