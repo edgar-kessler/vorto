@@ -4,8 +4,8 @@
 const ultra = { id: "parakeet-ultra", why: "Fewest errors at this speed, on any processor" };
 const whisper = { id: "whisper-turbo", why: "Clearly fewer errors here than Parakeet. Runs best with a graphics card" };
 export const languages = [
-  ["de", "German", { id: "parakeet-de", why: "Trained further on German, as fast as the others" }],
   ["en", "English", { id: "parakeet-en", why: "Made for English alone, at the same speed" }],
+  ["de", "German", { id: "parakeet-de", why: "Trained further on German, as fast as the others" }],
   ["fr", "French", ultra],
   ["es", "Spanish", ultra],
   ["it", "Italian", ultra],
@@ -34,14 +34,13 @@ export const bestFor = (code) => (languages.find(([c]) => c === code) ?? languag
 
 const KEY = "vorto.models.language";
 const known = (code) => languages.some(([c]) => c === code);
-/** The language chosen on this PC, else that of Windows. */
+/** The language chosen on this PC, else English. */
 export function spokenLanguage() {
   let saved = null;
   try {
     saved = localStorage.getItem(KEY);
   } catch {}
-  const windows = navigator.language?.slice(0, 2).toLowerCase() ?? "";
-  return known(saved) ? saved : known(windows) ? windows : "other";
+  return known(saved) ? saved : "en";
 }
 export function rememberLanguage(code) {
   try {

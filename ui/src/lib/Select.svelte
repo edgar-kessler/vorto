@@ -104,6 +104,8 @@
     top: calc(100% + 6px);
     right: 0;
     min-width: 100%;
+    max-height: min(280px, 45vh);
+    overflow-y: auto;
     padding: 5px;
     border-radius: 6px;
     background: var(--surface);

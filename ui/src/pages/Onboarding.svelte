@@ -179,7 +179,7 @@
           <p class="lead rise" style="--d:2">In any app. It learns how you talk, and your voice never leaves this PC.</p>
         {:else if name === "model"}
           <h1 class="rise" style="--d:0">What do you mostly speak?</h1>
-          <div class="rise" style="--d:1">
+          <div class="rise above" style="--d:1">
             <Select label="What you mostly speak" bind:value={speak} options={languageOptions} width={260} onchange={() => (picked = null)} />
           </div>
           {#if recommended}
@@ -213,7 +213,7 @@
           <h1 class="rise" style="--d:1">Say something</h1>
           <div class="level rise" style="--d:2" aria-hidden="true"><i style="transform: scaleX({Math.max(0.02, voice)})"></i></div>
           <p class="lead rise" style="--d:2">The line moves when Vorto hears you.</p>
-          <div class="rise" style="--d:3">
+          <div class="rise above" style="--d:3">
             <Select label="Microphone" value={s.settings.microphone} options={microphones} width={320} onchange={(v) => saveSettings({ microphone: v })} />
           </div>
         {:else if name === "shortcut"}
@@ -389,8 +389,13 @@
     margin: 0 auto;
     padding: 16px 0;
   }
+  /* Holds a menu: it stays in front of what comes after it in the step. */
+  .above {
+    position: relative;
+    z-index: 10;
+  }
   .rise {
-    animation: rise 460ms cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation: rise 460ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
     animation-delay: calc(90ms + var(--d) * 55ms);
   }
   @keyframes rise {
