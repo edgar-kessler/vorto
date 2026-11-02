@@ -1,7 +1,7 @@
 #!/bin/sh
 # Installs the package this runner just built and asks its vorto command for a status: that checks
 # the files are there and the command finds what it needs beside it. Needs no display or microphone.
-set -eu
+set -eux
 
 export VORTO_DATA_DIR="$(mktemp -d)"
 case "$(uname -s)" in
@@ -9,6 +9,7 @@ case "$(uname -s)" in
     mount=$(mktemp -d)
     hdiutil attach -quiet -nobrowse -mountpoint "$mount" packages/Vorto-macOS.dmg
     bin="$mount/Vorto.app/Contents/MacOS"
+    ls -la "$mount" "$mount/Vorto.app/Contents" "$bin"
     test -x "$bin/vorto-app"
     test -x "$bin/vorto-engine"
     "$bin/vorto" status
