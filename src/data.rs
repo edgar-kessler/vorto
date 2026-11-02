@@ -575,7 +575,12 @@ impl Default for Settings {
             model: DEFAULT_MODEL.into(),
             language: "auto".into(),
             microphone: String::new(),
-            hotkey: vec![VK_RCONTROL],
+            // Most Mac keyboards have no right Control key.
+            hotkey: vec![if cfg!(target_os = "macos") {
+                VK_RMENU
+            } else {
+                VK_RCONTROL
+            }],
             toggle: false,
             idle_minutes: 0,
             paste: true,
@@ -719,6 +724,7 @@ impl Settings {
     }
 }
 pub const VK_RCONTROL: u32 = 0xA3;
+pub const VK_RMENU: u32 = 0xA5;
 
 /// In combinations either side of a modifier works, and keys read Ctrl, Alt, Shift, Win, key.
 /// A single modifier such as Right Ctrl keeps its side.

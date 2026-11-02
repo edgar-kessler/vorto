@@ -15,7 +15,7 @@
   let speak = $state(spokenLanguage());
   $effect(() => rememberLanguage(speak));
   let pick = $derived(bestFor(speak));
-  // Best first, then what's on this PC, then the rest in catalog order.
+  // Best first, then what's on this device, then the rest in catalog order.
   let sorted = $derived(
     [...s.models].sort((a, b) => {
       const rank = (m) => (m.id === pick.id ? 0 : m.installed ? 1 : 2);

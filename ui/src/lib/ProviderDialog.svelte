@@ -12,8 +12,8 @@
 
   // Everything that speaks the OpenAI chat API uses "openai"; Anthropic has its own.
   const catalog = [
-    { id: "ollama", name: "Ollama", kind: "openai", url: "http://localhost:11434/v1", local: true, about: "Free models on this PC", site: "https://ollama.com/download" },
-    { id: "lmstudio", name: "LM Studio", kind: "openai", url: "http://localhost:1234/v1", local: true, about: "Free models on this PC", site: "https://lmstudio.ai" },
+    { id: "ollama", name: "Ollama", kind: "openai", url: "http://localhost:11434/v1", local: true, about: "Free models on this device", site: "https://ollama.com/download" },
+    { id: "lmstudio", name: "LM Studio", kind: "openai", url: "http://localhost:1234/v1", local: true, about: "Free models on this device", site: "https://lmstudio.ai" },
     { id: "openai", name: "OpenAI", kind: "openai", url: "https://api.openai.com/v1", about: "GPT models", keys: "https://platform.openai.com/api-keys" },
     { id: "anthropic", name: "Anthropic", kind: "anthropic", url: "https://api.anthropic.com", about: "Claude models", keys: "https://console.anthropic.com/settings/keys" },
     { id: "gemini", name: "Google Gemini", kind: "openai", url: "https://generativelanguage.googleapis.com/v1beta/openai", about: "Gemini models", keys: "https://aistudio.google.com/apikey" },
@@ -124,7 +124,7 @@
           {#if providerQuery}<button class="icon-btn small" aria-label="Clear search" onclick={() => (providerQuery = "")}><Icon name="x" size={13} /></button>{/if}
         </div>
         <div class="catalog">
-          {#each [["On this PC", listed.filter((c) => c.local)], ["Online", listed.filter((c) => !c.local)]] as [group, entries] (group)}
+          {#each [["On this device", listed.filter((c) => c.local)], ["Online", listed.filter((c) => !c.local)]] as [group, entries] (group)}
             {#if entries.length}
               <h3 class="group-title">{group}</h3>
               <div class="grid">
@@ -135,7 +135,7 @@
                       <strong>{entry.name}</strong>
                       <span>{entry.about}</span>
                     </span>
-                    {#if running(entry)}<span class="dot" title="Running on this PC"></span>{/if}
+                    {#if running(entry)}<span class="dot" title="Running on this device"></span>{/if}
                   </button>
                 {/each}
               </div>
@@ -169,7 +169,7 @@
             {#if dialog.error}<p class="problem" transition:slide={{ duration: 160 }}>{dialog.error}</p>{/if}
             <div class="facts">
               <p><Icon name="globe" size={15} /> {entry.custom ? "This provider" : entry.name} receives the text of your dictations. Your voice stays on this device.</p>
-              <p><Icon name="key" size={15} /> The key is kept in Windows Credential Manager, not in a file.</p>
+              <p><Icon name="key" size={15} /> The key is kept in your system's secure storage, not in a file.</p>
             </div>
           {:else if setupModels?.status === "error"}
             <p class="problem">{setupModels.error}</p>

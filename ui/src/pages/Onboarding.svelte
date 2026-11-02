@@ -146,7 +146,7 @@
   });
   // A resting model wakes up when dictation starts.
   let ready = $derived(selected?.installed && (s.phase === "ready" || s.phase === "sleeping"));
-  let microphones = $derived([{ value: "", label: "Windows default" }, ...s.microphones.map((m) => ({ value: m, label: m }))]);
+  let microphones = $derived([{ value: "", label: "System default" }, ...s.microphones.map((m) => ({ value: m, label: m }))]);
   // A failed download of the chosen model, or an engine error once nothing is downloading.
   let problem = $derived(s.downloadError?.id === choice ? s.downloadError.text : s.phase === "error" && !s.downloading ? s.detail : "");
   const maker = (m) => (m.id === "parakeet-de" ? "primeLine" : m.id === "parakeet-ultra" ? "Moondream" : m.family === "parakeet" ? "NVIDIA" : "OpenAI");
@@ -176,7 +176,7 @@
         {#if name === "welcome"}
           <div class="mark rise" style="--d:0"><Mark size={84} mood="listening" level={demo} /></div>
           <h1 class="big rise" style="--d:1">Say it.<br />Vorto writes it.</h1>
-          <p class="lead rise" style="--d:2">In any app. It learns how you talk, and your voice never leaves this PC.</p>
+          <p class="lead rise" style="--d:2">In any app. It learns how you talk, and your voice never leaves this device.</p>
         {:else if name === "model"}
           <h1 class="rise" style="--d:0">What do you mostly speak?</h1>
           <div class="rise above" style="--d:1">
@@ -266,7 +266,7 @@
             <div class="model" class:on={aiChoice === "local"} class:off={!local} role="button" tabindex={local ? 0 : -1} aria-pressed={aiChoice === "local"} onclick={() => local && (aiChoice = "local")} onkeydown={(e) => local && e.key === "Enter" && (aiChoice = "local")}>
               <span class="logo"><ProviderLogo id={local?.id ?? "ollama"} size={18} /></span>
               <span class="model-text">
-                <strong>{local ? `${local.name} on this PC` : "A free model on this PC"}</strong>
+                <strong>{local ? `${local.name} on this device` : "A free model on this device"}</strong>
                 <span>
                   {#if local}Private and free.{:else}<span class="spinner small"></span> Looking for Ollama or LM Studio.
                     <!-- svelte-ignore a11y_no_static_element_interactions, a11y_click_events_have_key_events -->
