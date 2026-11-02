@@ -101,6 +101,12 @@ pub enum Action {
     ForgetApp {
         exe: String,
     },
+    /// The user fixed the words of a dictation in History.
+    CorrectHistory {
+        at: String,
+        old: String,
+        text: String,
+    },
 }
 
 impl Action {
@@ -137,6 +143,7 @@ impl Action {
             Action::ResetEverything => "resetEverything",
             Action::OpenUrl { .. } => "openUrl",
             Action::ForgetApp { .. } => "forgetApp",
+            Action::CorrectHistory { .. } => "correctHistory",
         }
     }
 }
@@ -144,6 +151,11 @@ impl Action {
 pub enum Msg {
     Hook(HookEvent),
     Action(Action),
+    /// The user changed a dictation in the app it went into.
+    Corrected {
+        before: String,
+        after: String,
+    },
     Inserted {
         outcome: native::Outcome,
         text: String,
@@ -392,6 +404,42 @@ struct Flight {
 }
 
 /// Whether any 30 ms of 16 kHz audio is loud enough to hold speech.
+/// How long the microphone stays on after the shortcut is let go.
+const RELEASE_TAIL: Duration = Duration::from_millis(150);
+
+/// Seconds between looks at the field a dictation went into. A change counts once it's still the
+/// same at the next look, so a word typed halfway teaches nothing.
+const LOOKS: [u64; 7] = [3, 4, 6, 10, 15, 30, 60];
+
+/// Watches the field a dictation went into for a short while, and reports a change.
+fn watch_for_corrections(hwnd: isize, inserted: &str, tx: &Sender<Msg>) {
+    let mut last: Option<String> = None;
+    for seconds in LOOKS {
+        std::thread::sleep(Duration::from_secs(seconds));
+        // Another window has focus, so the focused field isn't the one written into.
+        if native::foreground() != hwnd {
+            continue;
+        }
+        let Some(document) = crate::caret::field_text() else {
+            continue;
+        };
+        let Some(now) = vocab::locate(inserted, &document) else {
+            continue;
+        };
+        if now == inserted {
+            last = None;
+        } else if last.as_deref() == Some(now.as_str()) {
+            let _ = tx.send(Msg::Corrected {
+                before: inserted.to_string(),
+                after: now,
+            });
+            return;
+        } else {
+            last = Some(now);
+        }
+    }
+}
+
 fn voiced(samples: &[f32]) -> bool {
     samples
         .chunks(480)
@@ -841,14 +889,49 @@ impl Controller {
             .map(|p| (p.id.clone(), crate::secret::read(&p.id).is_some()))
             .collect();
     }
-    /// The Whisper hint from the dictionary; Parakeet takes none.
+    fn whisper(&self) -> bool {
+        data::model(&self.store.settings.model).is_some_and(|m| m.family == Family::Whisper)
+    }
+    /// The dictionary, with what the user corrected first.
+    fn words(&self) -> Vec<String> {
+        let settings = &self.store.settings;
+        vocab::words(&settings.vocabulary, &settings.learned)
+    }
+    /// The Whisper hint from the dictionary; Parakeet checks `terms` against the audio instead.
     fn prompt(&self) -> String {
-        let whisper =
-            data::model(&self.store.settings.model).is_some_and(|m| m.family == Family::Whisper);
-        if whisper {
-            vocab::whisper_prompt(&self.store.settings.vocabulary)
+        if self.whisper() {
+            vocab::whisper_prompt(&self.words())
         } else {
             String::new()
+        }
+    }
+    fn terms(&self) -> Vec<vocab::Term> {
+        if self.whisper() {
+            Vec::new()
+        } else {
+            let settings = &self.store.settings;
+            vocab::terms(&settings.vocabulary, &settings.learned)
+        }
+    }
+    /// Keeps what a correction teaches. `before` is what Vorto wrote, `after` what the user made
+    /// of it.
+    fn learn(&mut self, before: &str, after: &str) {
+        if !self.store.settings.learn {
+            return;
+        }
+        let found = vocab::corrections(before, after);
+        if found.is_empty() {
+            return;
+        }
+        let fresh = vocab::remember(&mut self.store.settings.learned, found);
+        self.save();
+        // The word itself stays out of the log, like every other word the user says.
+        crate::log::write(format!("learned {} new corrections", fresh.len()));
+        if let Some(first) = fresh.first() {
+            if !self.busy_dictating() {
+                let note = format!("Learned \u{201c}{}\u{201d}", first.to);
+                self.show_hud("notice", note, Some(Duration::from_millis(1800)));
+            }
         }
     }
 
@@ -957,6 +1040,7 @@ impl Controller {
                     self.mic_test = None;
                 }
             }
+            Msg::Corrected { before, after } => self.learn(&before, &after),
             Msg::Update(msg) => self.update_event(msg),
             Msg::Action(action) => self.act(action),
         }
@@ -1159,6 +1243,22 @@ impl Controller {
                 }
                 _ => {}
             },
+            Action::CorrectHistory { at, old, text } => {
+                let text = text.trim().to_string();
+                if text.is_empty() || text == old {
+                    return;
+                }
+                match self.store.correct(&at, &old, text.clone()) {
+                    Ok(true) => {
+                        if self.latest == old {
+                            self.latest = text.clone();
+                        }
+                        self.learn(&old, &text);
+                    }
+                    Ok(false) => {}
+                    Err(e) => self.say("error", format!("History couldn't be saved: {e}")),
+                }
+            }
             Action::SetApiKey { provider, key } => {
                 if !crate::secret::write(&provider, &key) {
                     self.say("error", "Windows didn't store the API key.");
@@ -1205,7 +1305,7 @@ impl Controller {
                 let job = ai::Job::new(
                     provider,
                     profile,
-                    &self.store.settings.vocabulary,
+                    &self.words(),
                     vocab::replace(&text, &self.store.settings.replacements),
                     Duration::from_secs(self.store.settings.ai.timeout_secs.max(60)),
                 );
@@ -1682,6 +1782,9 @@ impl Controller {
         };
         self.stopped_at = Instant::now();
         hotkey::set_recording(false);
+        // People let go as the last word ends, and its end is still on its way from the
+        // microphone. The click comes after, so it isn't recorded.
+        std::thread::sleep(RELEASE_TAIL);
         self.sound(Sound::Release);
         self.last_used = Instant::now();
         let tap = recorder.tap();
@@ -1783,6 +1886,7 @@ impl Controller {
             audio: file.path().into(),
             language: self.language(pending.tail_seconds),
             prompt: self.prompt(),
+            terms: self.terms(),
         };
         if let Err(e) = self.engine.send(command, Phase::Transcribing) {
             self.engine.fail(&e.to_string());
@@ -1944,6 +2048,12 @@ impl Controller {
             audio: file.path().into(),
             language: self.language(seconds),
             prompt: self.prompt(),
+            // A commit is final; a preview has to keep up with the voice.
+            terms: if matches!(draft, Draft::Commit { .. }) {
+                self.terms()
+            } else {
+                Vec::new()
+            },
         };
         let phase = self.engine.phase;
         if self.engine.send(command, phase).is_ok() {
@@ -1959,7 +2069,15 @@ impl Controller {
 
     fn deliver(&mut self, text: String, seconds: f32) {
         self.last_used = Instant::now();
-        let text = vocab::replace(text.trim(), &self.store.settings.replacements)
+        let settings = &self.store.settings;
+        // Parakeet already checked the learned words against the audio.
+        let text = if self.whisper() {
+            vocab::apply_learned(text.trim(), &settings.learned)
+        } else {
+            text.trim().to_string()
+        };
+        let text = vocab::fix_case(&text, &self.words());
+        let text = vocab::replace(&text, &settings.replacements)
             .trim()
             .to_string();
         if text.is_empty() {
@@ -1988,13 +2106,7 @@ impl Controller {
             return false;
         };
         let timeout = Duration::from_secs(ai.timeout_secs);
-        let job = ai::Job::new(
-            provider,
-            profile,
-            &settings.vocabulary,
-            text.to_string(),
-            timeout,
-        );
+        let job = ai::Job::new(provider, profile, &self.words(), text.to_string(), timeout);
         let name = profile.name.clone();
         crate::log::write(format!("AI editing with {}", provider.name));
         self.editing = Some(Editing {
@@ -2110,6 +2222,7 @@ impl Controller {
         let paste = self.store.settings.method == "paste";
         let restore = self.store.settings.restore_clipboard;
         let highlight = self.store.settings.highlight;
+        let learn = self.store.settings.learn && !again;
         let tx = self.tx.clone();
         // Counted until Inserted arrives, so an update waits for the text to land.
         self.inserting += 1;
@@ -2131,6 +2244,9 @@ impl Controller {
                 if !rects.is_empty() {
                     let _ = tx.send(Msg::Landed(rects));
                 }
+            }
+            if learn && landed {
+                watch_for_corrections(hwnd, text.trim(), &tx);
             }
         });
     }

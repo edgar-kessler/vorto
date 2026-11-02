@@ -256,9 +256,8 @@
     justify-content: space-between;
     gap: 24px;
     flex-wrap: wrap;
-    padding: 26px 26px 24px;
-    border-radius: var(--r-xl);
-    background: var(--group);
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--border);
   }
   .hero > div {
     display: flex;
@@ -266,15 +265,16 @@
   }
   .hero-label {
     font-size: 13px;
-    font-weight: 540;
+    font-weight: 530;
     color: var(--muted);
   }
   .hero-value {
     margin-top: 4px;
-    font-size: 52px;
-    font-weight: 620;
-    line-height: 1.05;
-    letter-spacing: -0.035em;
+    font-family: var(--mono);
+    font-size: 48px;
+    font-weight: 400;
+    line-height: 1.1;
+    letter-spacing: -0.05em;
   }
   .hero-note {
     margin-top: 8px;
@@ -291,8 +291,9 @@
   .tiles {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 8px;
-    margin-top: 8px;
+    gap: 16px;
+    padding: 20px 0;
+    border-bottom: 1px solid var(--border);
   }
   @media (max-width: 760px) {
     .tiles {
@@ -302,25 +303,24 @@
   .tile {
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    padding: 14px 16px;
-    border-radius: var(--r-lg);
-    background: var(--group);
+    gap: 2px;
   }
   .tile-label {
-    font-size: 12.5px;
+    font-size: 13px;
     color: var(--muted);
   }
   .tile-value {
-    font-size: 19px;
-    font-weight: 600;
-    letter-spacing: -0.02em;
+    font-family: var(--mono);
+    font-size: 20px;
+    font-weight: 400;
+    letter-spacing: -0.04em;
   }
   .card {
-    margin-top: 16px;
-    padding: 18px 20px 20px;
-    border-radius: var(--r-xl);
-    background: var(--group);
+    padding: 24px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .card:last-child {
+    border-bottom: 0;
   }
   .card-head {
     display: flex;
@@ -330,11 +330,15 @@
     margin-bottom: 18px;
   }
   .card-head h2 {
-    font-size: 15px;
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 400;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
   }
   .card-head p {
     margin-top: 2px;
-    font-size: 12.5px;
+    font-size: 13px;
     color: var(--muted);
   }
   /* Columns: 4px rounded tops on a shared baseline, recessive hairline grid. */
@@ -377,7 +381,7 @@
     display: flex;
     align-items: flex-end;
     justify-content: center;
-    border-radius: 6px;
+    border-radius: 4px;
   }
   .column:hover,
   .column:focus-visible {
@@ -387,7 +391,7 @@
     display: block;
     width: min(16px, 70%);
     min-height: 0;
-    border-radius: 4px 4px 0 0;
+    border-radius: 2px 2px 0 0;
     background: var(--chart);
     transform-origin: bottom;
     animation: grow 620ms var(--ease) both;
@@ -405,7 +409,7 @@
   .cap-label {
     position: absolute;
     font-size: 11.5px;
-    font-weight: 560;
+    font-weight: 530;
     color: var(--text);
     white-space: nowrap;
   }
@@ -448,7 +452,7 @@
     place-items: center;
     width: 22px;
     height: 22px;
-    border-radius: 6px;
+    border-radius: 4px;
     background: var(--control);
     color: var(--muted);
   }
@@ -458,7 +462,7 @@
     gap: 8px;
     height: 32px;
     padding: 0 6px 0 0;
-    border-radius: 8px;
+    border-radius: 4px;
     text-align: left;
   }
   .bar-track:hover,
@@ -480,8 +484,8 @@
     }
   }
   .tip-label {
-    font-size: 12.5px;
-    font-weight: 540;
+    font-size: 12px;
+    font-weight: 530;
     color: var(--muted);
     white-space: nowrap;
     font-variant-numeric: tabular-nums;
@@ -497,7 +501,7 @@
   }
   th {
     text-align: left;
-    font-weight: 540;
+    font-weight: 530;
     color: var(--muted);
     font-size: 12px;
     padding: 6px 8px;
@@ -521,7 +525,7 @@
     flex-direction: column;
     gap: 2px;
     padding: 9px 12px;
-    border-radius: 10px;
+    border-radius: 6px;
     background: var(--surface);
     box-shadow:
       var(--shadow-pop),
@@ -535,12 +539,12 @@
     color: var(--muted);
   }
   .tip-row {
-    font-size: 12.5px;
+    font-size: 12px;
     color: var(--muted);
   }
   .tip-row strong {
     color: var(--text);
-    font-weight: 600;
+    font-weight: 530;
   }
   .scrim {
     position: fixed;
@@ -553,7 +557,7 @@
   .dialog {
     width: 380px;
     padding: 22px;
-    border-radius: 18px;
+    border-radius: 8px;
     background: var(--surface);
     box-shadow: var(--shadow-pop);
   }

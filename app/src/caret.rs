@@ -1,7 +1,8 @@
 //! Where text just landed on screen, for the short glow over inserted words. Asks the app
 //! through UI Automation for the rectangles of the last `chars` characters before the caret,
 //! and falls back to the system caret that classic Win32 controls show. Reads positions only:
-//! nothing in the app is selected or changed.
+//! nothing in the app is selected or changed. It can also read the text of the focused field, so
+//! Vorto can learn from the words the user corrects right after a dictation.
 use windows::{
     core::{Interface, BOOL},
     Win32::{
@@ -19,8 +20,9 @@ use windows::{
         UI::{
             Accessibility::{
                 CUIAutomation8, IUIAutomation, IUIAutomation2, IUIAutomationTextPattern,
-                IUIAutomationTextPattern2, IUIAutomationTextRange, TextPatternRangeEndpoint_Start,
-                TextUnit_Character, UIA_TextPattern2Id, UIA_TextPatternId,
+                IUIAutomationTextPattern2, IUIAutomationTextRange, IUIAutomationValuePattern,
+                TextPatternRangeEndpoint_Start, TextUnit_Character, UIA_TextPattern2Id,
+                UIA_TextPatternId, UIA_ValuePatternId,
             },
             WindowsAndMessaging::{GetGUIThreadInfo, GetWindowThreadProcessId, GUITHREADINFO},
         },
@@ -78,6 +80,43 @@ unsafe fn from_automation(chars: usize) -> windows::core::Result<Vec<Rect>> {
         CoUninitialize();
     }
     result
+}
+
+/// At most this much of a field is read: enough for the place being written in.
+const FIELD_CHARS: i32 = 40_000;
+
+/// The text of the focused field. Password fields are never read, and the text is only held for
+/// as long as it takes to compare it with a dictation.
+pub fn field_text() -> Option<String> {
+    // SAFETY: COM is set up and torn down on this thread; every pointer comes from Windows.
+    unsafe {
+        let initialized = CoInitializeEx(None, COINIT_MULTITHREADED).is_ok();
+        let result = (|| -> windows::core::Result<Option<String>> {
+            let automation: IUIAutomation =
+                CoCreateInstance(&CUIAutomation8, None, CLSCTX_INPROC_SERVER)?;
+            if let Ok(timeouts) = automation.cast::<IUIAutomation2>() {
+                let _ = timeouts.SetConnectionTimeout(800);
+                let _ = timeouts.SetTransactionTimeout(800);
+            }
+            let element = automation.GetFocusedElement()?;
+            if element.CurrentIsPassword()?.as_bool() {
+                return Ok(None);
+            }
+            if let Ok(pattern) =
+                element.GetCurrentPatternAs::<IUIAutomationTextPattern>(UIA_TextPatternId)
+            {
+                let text = pattern.DocumentRange()?.GetText(FIELD_CHARS)?;
+                return Ok(Some(text.to_string()));
+            }
+            let pattern =
+                element.GetCurrentPatternAs::<IUIAutomationValuePattern>(UIA_ValuePatternId)?;
+            Ok(Some(pattern.CurrentValue()?.to_string()))
+        })();
+        if initialized {
+            CoUninitialize();
+        }
+        result.ok().flatten()
+    }
 }
 
 /// The bounding rectangles of a text range: a flat array of left, top, width, height.

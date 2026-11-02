@@ -76,7 +76,7 @@
 
 {#if !installed && !s.downloading}
   <section class="welcome">
-    <div class="hero-mascot"><Mark size={116} /></div>
+    <div class="hero-mascot"><Mark size={56} /></div>
     <h1>Choose a voice model</h1>
     <div class="welcome-card">
       <ModelCard model={recommended} featured />
@@ -87,11 +87,7 @@
   <section class="hero">
     <h1 class="sr-only">Dictate</h1>
     <div class="stage" class:live={listening}>
-      {#if listening}
-        <span class="ring" style="--l:{normalizeLevel($level)}"></span>
-        <span class="ring two" style="--l:{normalizeLevel($level)}"></span>
-      {/if}
-      <div class="mascot-layer"><Mark size={124} {mood} level={normalizeLevel($level)} /></div>
+      <div class="mascot-layer"><Mark size={64} {mood} level={normalizeLevel($level)} /></div>
     </div>
 
     {#key headlineKey}
@@ -207,43 +203,12 @@
     flex-direction: column;
     align-items: center;
     text-align: center;
-    padding: 18px 0 8px;
+    padding: 56px 0 16px;
   }
   .stage {
-    position: relative;
     display: grid;
     place-items: center;
-    width: 200px;
-    height: 170px;
-  }
-  .stage::before {
-    content: "";
-    position: absolute;
-    width: 150px;
-    height: 150px;
-    border-radius: 999px;
-    background: radial-gradient(circle, var(--glow) 0%, transparent 70%);
-    transition: transform 400ms var(--ease);
-  }
-  .stage.live::before {
-    transform: scale(1.25);
-  }
-  .mascot-layer {
-    position: relative;
-    z-index: 1;
-  }
-  .ring {
-    position: absolute;
-    width: 132px;
-    height: 132px;
-    border-radius: 999px;
-    border: 2px solid rgba(255, 98, 80, 0.35);
-    transform: scale(calc(1 + var(--l) * 0.35));
-    transition: transform 90ms linear;
-  }
-  .ring.two {
-    border-color: rgba(255, 98, 80, 0.16);
-    transform: scale(calc(1.12 + var(--l) * 0.6));
+    height: 88px;
   }
   .headline {
     display: flex;
@@ -251,18 +216,22 @@
     align-items: center;
   }
   .title {
-    margin-top: 10px;
-    font-size: 26px;
-    line-height: 1.2;
-    font-weight: 620;
-    letter-spacing: -0.022em;
+    margin-top: 12px;
+    font-family: var(--mono);
+    font-size: 24px;
+    line-height: 1.25;
+    font-weight: 400;
+    letter-spacing: -0.05em;
   }
   .instruction {
     display: inline-flex;
     flex-wrap: wrap;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: 10px;
+  }
+  .instruction :global(.kbd) {
+    letter-spacing: 0;
   }
   .timer {
     font-variant-numeric: tabular-nums;
@@ -274,7 +243,7 @@
   .message {
     margin-top: 10px;
     max-width: 520px;
-    font-size: 15.5px;
+    font-size: 14px;
     color: var(--red);
   }
   .sub {
@@ -285,11 +254,11 @@
     gap: 7px;
     min-height: 30px;
     margin-top: 8px;
-    font-size: 15px;
+    font-size: 13px;
     font-variant-numeric: tabular-nums;
   }
   .word {
-    animation: word-in 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation: word-in 160ms ease-out both;
   }
   @keyframes word-in {
     from {
@@ -300,10 +269,9 @@
   .live {
     max-width: 560px;
     margin-top: 14px;
-    font-size: 17px;
-    line-height: 1.5;
+    font-size: 15px;
+    line-height: 1.55;
     color: var(--text);
-    transition: color 220ms ease;
   }
   .live.frozen {
     color: var(--muted);
@@ -313,7 +281,7 @@
     align-items: center;
     gap: 8px;
     min-height: 44px;
-    margin-top: 22px;
+    margin-top: 20px;
   }
   .rec {
     width: 9px;
@@ -323,8 +291,8 @@
   }
   .progress {
     width: 300px;
-    height: 6px;
-    border-radius: 999px;
+    height: 2px;
+    border-radius: 2px;
     background: var(--bar-bg);
     overflow: hidden;
   }
@@ -339,43 +307,40 @@
     display: flex;
     align-items: flex-start;
     gap: 12px;
-    margin-top: 26px;
-    padding: 16px 12px 16px 18px;
-    border-radius: var(--r-lg);
-    background: var(--surface);
-    border: 1px solid var(--border);
+    margin-top: 24px;
+    padding: 12px 8px 12px 16px;
+    border-radius: 6px;
     box-shadow: var(--shadow-card);
   }
   .latest p {
     flex: 1;
-    font-size: 15px;
+    font-size: 14px;
     line-height: 1.55;
   }
   .today {
-    margin-top: 30px;
+    margin-top: 48px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
   }
   .stats {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 10px;
+    display: flex;
+    gap: 56px;
+    margin-top: 12px;
   }
   .stat {
     display: flex;
     flex-direction: column;
     gap: 2px;
-    padding: 14px 16px;
-    border-radius: 14px;
-    background: var(--group);
     text-align: left;
   }
   .stat-label {
-    font-size: 12.5px;
     color: var(--muted);
   }
   .stat strong {
-    font-size: 20px;
-    font-weight: 620;
-    letter-spacing: -0.02em;
-    font-variant-numeric: tabular-nums;
+    font-family: var(--mono);
+    font-size: 24px;
+    font-weight: 400;
+    line-height: 1.2;
+    letter-spacing: -0.04em;
   }
 </style>

@@ -52,12 +52,12 @@
     gap: 10px;
     max-width: min(560px, calc(100vw - var(--sidebar-w) - 48px));
     padding: 8px 8px 8px 10px;
-    border-radius: 14px;
+    border-radius: 6px;
     background: var(--toast);
     border: 1px solid var(--toast-border);
     color: #fff;
     box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22);
-    font-size: 13.5px;
+    font-size: 13px;
   }
   .toast.centered {
     left: 50%;
@@ -88,7 +88,7 @@
     place-items: center;
     width: 24px;
     height: 24px;
-    border-radius: 6px;
+    border-radius: 4px;
     color: #9d9da5;
   }
   .close:hover {

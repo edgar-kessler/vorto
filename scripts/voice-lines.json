@@ -1,0 +1,7 @@
+[
+  { "id": "learn", "voice": "jessica", "model": "parakeet-en", "say": "So, um, I finally switched to Vorto, and it, like, basically just writes what I say." },
+  { "id": "mail", "voice": "brian", "model": "parakeet-en", "say": "Hey Sarah, uh, thanks for the quick reply. Thursday at ten, um, works great for me. See you then." },
+  { "id": "german", "voice": "matilda", "model": "parakeet-de", "say": "Hallo Sara, ähm, können wir das Meeting, also, auf morgen um zehn verschieben? Danke dir." },
+  { "id": "prompt", "voice": "charlie", "model": "parakeet-en", "say": "Can you, um, write me a function that, like, sorts the list and, uh, removes the duplicates?" },
+  { "id": "note", "voice": "laura", "model": "parakeet-en", "say": "Okay, so, um, remind me to call the dentist tomorrow morning, and, uh, pick up the kids at three." }
+]

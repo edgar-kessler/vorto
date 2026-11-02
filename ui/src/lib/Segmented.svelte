@@ -22,33 +22,33 @@
     position: relative;
     display: grid;
     grid-template-columns: repeat(var(--count), 1fr);
-    padding: 3px;
-    border-radius: 10px;
-    background: var(--control);
-    min-width: 200px;
+    padding: 2px;
+    border-radius: 6px;
+    background: var(--group);
+    min-width: 160px;
   }
   .thumb {
     position: absolute;
-    top: 3px;
-    bottom: 3px;
-    left: 3px;
-    width: calc((100% - 6px) / var(--count));
-    border-radius: 7px;
-    background: var(--surface);
-    box-shadow:
-      0 1px 3px rgba(0, 0, 0, 0.1),
-      0 0 0 0.5px rgba(0, 0, 0, 0.04);
+    top: 2px;
+    bottom: 2px;
+    left: 2px;
+    width: calc((100% - 4px) / var(--count));
+    border-radius: 4px;
+    background: var(--control);
+    box-shadow: var(--control-shadow);
     transform: translateX(calc(100% * var(--index)));
-    transition: transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
+    transition: transform 120ms var(--ease);
+  }
+  :global(:root[data-theme="light"]) .thumb {
+    background: #ffffff;
   }
   button {
     position: relative;
-    height: 28px;
-    padding: 0 12px;
-    font-size: 13px;
-    font-weight: 500;
+    height: 24px;
+    padding: 0 10px;
+    font-size: 12.5px;
+    font-weight: 530;
     color: var(--muted);
-    transition: color 160ms ease;
   }
   button.active {
     color: var(--text);

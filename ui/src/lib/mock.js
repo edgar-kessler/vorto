@@ -3,7 +3,10 @@
 // ?failed=<model id>, ?hook=0, ?history=off, ?update=<status>, ?hud=listening|writing|done|notice|error#hud
 // with &live=, &text= and &elapsed= (seconds).
 const models = [
-  { id: "parakeet-v3", name: "Parakeet v3", family: "parakeet", languages: "25 European languages", downloadMb: 670, memoryMb: 900, speed: 5, accuracy: 5, hardware: "Fast on any modern processor", recommended: true, installed: true },
+  { id: "parakeet-v3", name: "Parakeet v3", family: "parakeet", languages: "25 European languages", downloadMb: 670, memoryMb: 900, speed: 5, accuracy: 4, hardware: "Fast on any modern processor", recommended: false, installed: true },
+  { id: "parakeet-ultra", name: "Parakeet Ultra", family: "parakeet", languages: "25 European languages", downloadMb: 670, memoryMb: 900, speed: 5, accuracy: 5, hardware: "Fast on any modern processor", recommended: true, installed: false },
+  { id: "parakeet-en", name: "Parakeet English", family: "parakeet", languages: "English", downloadMb: 661, memoryMb: 900, speed: 5, accuracy: 5, hardware: "Fast on any modern processor", recommended: false, installed: false },
+  { id: "parakeet-de", name: "Parakeet Deutsch", family: "parakeet", languages: "German", downloadMb: 672, memoryMb: 900, speed: 5, accuracy: 5, hardware: "Fast on any modern processor", recommended: false, installed: false },
   { id: "whisper-turbo", name: "Whisper Turbo", family: "whisper", languages: "99 languages", downloadMb: 574, memoryMb: 1100, speed: 2, accuracy: 5, hardware: "Needs a graphics card", recommended: false, installed: true },
   { id: "whisper-small", name: "Whisper Small", family: "whisper", languages: "99 languages", downloadMb: 488, memoryMb: 850, speed: 3, accuracy: 4, hardware: "Graphics card recommended", recommended: false, installed: false },
   { id: "whisper-base", name: "Whisper Base", family: "whisper", languages: "99 languages", downloadMb: 148, memoryMb: 400, speed: 4, accuracy: 3, hardware: "Light on any processor", recommended: false, installed: false },
@@ -20,7 +23,7 @@ export function startMock({ app, level, route }) {
     recording: hudMode === "listening", recordingSince: Date.now() - Number(params.get("elapsed") ?? 0) * 1000, recordingLimit: 120,
     dictatingHere: false, live: "", dictations: 0,
     settings: { gpu: true, model: "parakeet-v3", language: "auto", microphone: "", hotkey: [163], toggle: false, live_preview: true, sounds: true, highlight: true, hud_position: "top", onboarded: !params.get("onboarding"), idle_minutes: 0, paste: true, method: "paste", append_space: false, history: params.get("history") !== "off", restore_clipboard: true, overlay: true, auto_update: true, autostart: false, typing_wpm: 40, theme: params.get("theme") ?? "system",
-      vocabulary: ["Vorto", "Tauri", "Kessler"], dismissed: [], replacements: [{ from: "new paragraph", to: "\n\n" }],
+      vocabulary: ["Vorto", "Tauri", "Kessler"], dismissed: [], learn: true, learned: [{ from: "Warto", to: "Vorto", count: 3 }, { from: "Schatz CN", to: "shadcn", count: 1 }], replacements: [{ from: "new paragraph", to: "\n\n" }],
       shortcuts: { paste_last: [0x11, 0x12, 0x56], undo_last: [], toggle_ai: [], copy_last: [] },
       ai: {
         enabled: true, timeout_secs: 20,
@@ -129,6 +132,7 @@ export function startMock({ app, level, route }) {
     if (a.type === "recordShortcut") s.capturing = true;
     if (a.type === "stopRecordingShortcut") s.capturing = false;
     if (a.type === "setShortcut") { s.capturing = false; s.shortcut = a.keys.map(String); }
+    if (a.type === "correctHistory") { const e = s.history.find((h) => h.at === a.at && h.text === a.old); if (e) e.text = a.text; }
     if (a.type === "clearHistory") { s.history = []; s.latest = ""; }
     if (a.type === "testMicrophone") { s.micTest = a.on; if (a.on) setTimeout(() => { s.micTest = false; push(); }, 10000); }
     if (a.type === "setAutostart") s.autostart = a.on;

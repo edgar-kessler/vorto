@@ -51,7 +51,7 @@
   figure {
     margin: 0;
     padding: 10px;
-    border-radius: 18px;
+    border-radius: 8px;
     background: var(--surface);
     border: 1px solid var(--border);
   }
@@ -60,7 +60,7 @@
     place-items: center;
     width: 150px;
     height: 150px;
-    border-radius: 14px;
+    border-radius: 6px;
     background: var(--group);
   }
   .stage.dark {
@@ -81,13 +81,13 @@
     border-radius: 999px;
     background: #111113;
     color: #fff;
-    font-weight: 560;
+    font-weight: 530;
     font-size: 13px;
   }
   figcaption {
     margin-top: 6px;
     text-align: center;
-    font-weight: 560;
+    font-weight: 530;
     text-transform: capitalize;
   }
 </style>

@@ -64,7 +64,9 @@ pub fn download(root: &Path, id: &str) -> Result<()> {
             let path = partial.join(file.name);
             let url = format!(
                 "https://huggingface.co/{}/resolve/{}/{}",
-                entry.repo, entry.revision, file.name
+                file.from.map_or(entry.repo, |f| f.0),
+                file.from.map_or(entry.revision, |f| f.1),
+                file.name
             );
             let mut state = prefix(&path, file.size, &mut buffer, |n| progress.report(done + n))?;
             let mut attempt = 1;

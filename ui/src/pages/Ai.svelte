@@ -336,7 +336,7 @@
 <style>
   .section-lead {
     margin: -2px 2px 10px;
-    font-size: 12.5px;
+    font-size: 12px;
     line-height: 1.5;
     color: var(--muted);
   }
@@ -350,7 +350,7 @@
     background: var(--brand-soft);
     color: var(--brand);
     font-size: 11px;
-    font-weight: 620;
+    font-weight: 530;
     vertical-align: 1px;
   }
   .presets {
@@ -359,11 +359,8 @@
     gap: 6px;
   }
   .preset {
-    border-radius: var(--r-lg);
-    background: var(--group);
-    transition:
-      background var(--fast) ease,
-      box-shadow 240ms ease;
+    border-top: 1px solid var(--border);
+    transition: none;
   }
   .preset.open {
     background: var(--surface);
@@ -384,8 +381,9 @@
     width: 36px;
     height: 36px;
     flex-shrink: 0;
-    border-radius: 10px;
-    background: var(--surface);
+    border-radius: 6px;
+    background: var(--control);
+    box-shadow: var(--control-shadow);
     color: var(--muted);
     box-shadow: inset 0 0 0 1px var(--border);
     transition:
@@ -407,11 +405,11 @@
     text-align: left;
   }
   .preset-head strong {
-    font-weight: 560;
+    font-weight: 530;
     font-size: 14px;
   }
   .preset-head span {
-    font-size: 12.5px;
+    font-size: 12px;
     color: var(--muted);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -424,9 +422,9 @@
     display: flex;
     gap: 9px;
     padding: 10px 12px;
-    border-radius: 12px;
+    border-radius: 6px;
     background: var(--group);
-    font-size: 12.5px;
+    font-size: 12px;
     line-height: 1.55;
     color: var(--muted);
   }
@@ -449,12 +447,10 @@
     display: flex;
     flex-direction: column;
     padding: 4px;
-    border-radius: var(--r-lg);
-    background: var(--group);
   }
   .provider,
   .style {
-    border-radius: 12px;
+    border-radius: 6px;
     transition: background var(--fast) ease;
   }
   .provider.open,
@@ -488,7 +484,7 @@
   .entry-text strong,
   .found-text strong,
   .empty-text strong {
-    font-weight: 540;
+    font-weight: 530;
     font-size: 14px;
   }
   .provider-name span,
@@ -496,7 +492,7 @@
   .entry-text span,
   .found-text span,
   .empty-text span {
-    font-size: 12.5px;
+    font-size: 12px;
     color: var(--muted);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -526,7 +522,7 @@
   }
   .mono {
     font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
-    font-size: 12.5px;
+    font-size: 12px;
   }
   .saved {
     flex: 1;
@@ -554,9 +550,9 @@
     align-items: center;
     gap: 14px;
     padding: 10px 12px;
-    border-radius: 12px;
+    border-radius: 6px;
     background: var(--brand-soft);
-    font-size: 12.5px;
+    font-size: 12px;
     line-height: 1.5;
   }
   .consent span {
@@ -564,7 +560,7 @@
   }
   .problem {
     color: var(--red);
-    font-size: 12.5px;
+    font-size: 12px;
     line-height: 1.5;
   }
   .provider > .problem {
@@ -578,7 +574,7 @@
     align-items: center;
     gap: 7px;
     margin: 8px 6px 0;
-    font-size: 12.5px;
+    font-size: 12px;
     color: var(--muted);
   }
   .empty-card {
@@ -599,7 +595,7 @@
     place-items: center;
     width: 44px;
     height: 44px;
-    border-radius: 13px;
+    border-radius: 6px;
     background: var(--surface);
     color: var(--brand);
     box-shadow: var(--shadow-card);
@@ -610,7 +606,7 @@
     gap: 12px;
     width: 100%;
     padding: 10px 10px 10px 12px;
-    border-radius: 12px;
+    border-radius: 6px;
     background: var(--surface);
     box-shadow: var(--shadow-card);
   }
@@ -641,7 +637,7 @@
   .icons > :global(*) {
     margin-right: -5px;
     box-shadow: 0 0 0 2px var(--group);
-    border-radius: 6px;
+    border-radius: 4px;
   }
   .style.open .icons > :global(*) {
     box-shadow: 0 0 0 2px var(--surface);
@@ -654,7 +650,7 @@
     place-items: center;
     width: 22px;
     height: 22px;
-    border-radius: 6px;
+    border-radius: 4px;
     background: var(--control);
     color: var(--muted);
   }
@@ -669,7 +665,7 @@
   .title-field {
     height: 38px;
     font-size: 15px;
-    font-weight: 540;
+    font-weight: 530;
   }
   .block {
     display: flex;
@@ -677,8 +673,8 @@
     gap: 8px;
   }
   .block-title {
-    font-size: 12.5px;
-    font-weight: 540;
+    font-size: 12px;
+    font-weight: 530;
     color: var(--muted);
   }
   .chips {
@@ -753,7 +749,7 @@
   .result {
     margin-top: 12px;
     padding: 12px 14px;
-    border-radius: 12px;
+    border-radius: 6px;
     background: var(--surface);
     font-size: 14px;
     line-height: 1.55;

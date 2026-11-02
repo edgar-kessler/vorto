@@ -18,6 +18,8 @@ pub struct ModelFile {
     pub size: u64,
     /// Lowercase hex SHA-256.
     pub sha256: &'static str,
+    /// Repository and revision when the file doesn't live in the model's own repository.
+    pub from: Option<(&'static str, &'static str)>,
 }
 
 /// A downloadable voice model. Figures are shown in the model picker.
@@ -41,7 +43,7 @@ pub struct Model {
 }
 
 /// Recommended in the app.
-pub const DEFAULT_MODEL: &str = "parakeet-v3";
+pub const DEFAULT_MODEL: &str = "parakeet-ultra";
 
 /// Tauri's bundle identifier. The installer's "delete app data" option removes this folder in
 /// %LOCALAPPDATA%, and WebView2 keeps its profile in it too.
@@ -59,25 +61,171 @@ pub const MODELS: &[Model] = &[
                 name: "encoder-model.int8.onnx",
                 size: 652_183_999,
                 sha256: "6139d2fa7e1b086097b277c7149725edbab89cc7c7ae64b23c741be4055aff09",
+                from: None,
             },
             ModelFile {
                 name: "decoder_joint-model.int8.onnx",
                 size: 18_202_004,
                 sha256: "eea7483ee3d1a30375daedc8ed83e3960c91b098812127a0d99d1c8977667a70",
+                from: None,
             },
             ModelFile {
                 name: "nemo128.onnx",
                 size: 139_764,
                 sha256: "a9fde1486ebfcc08f328d75ad4610c67835fea58c73ba57e3209a6f6cf019e9f",
+                from: None,
             },
             ModelFile {
                 name: "vocab.txt",
                 size: 93_939,
                 sha256: "d58544679ea4bc6ac563d1f545eb7d474bd6cfa467f0a6e2c1dc1c7d37e3c35d",
+                from: None,
             },
         ],
         languages: "25 European languages",
         download_mb: 670,
+        memory_mb: 900,
+        speed: 5,
+        accuracy: 4,
+        hardware: "Fast on any modern processor",
+    },
+    Model {
+        id: "parakeet-ultra",
+        name: "Parakeet Ultra",
+        family: Family::Parakeet,
+        // Moondream's further training of Parakeet v3 (moondream/parakeet-ultra, CC-BY-4.0), as ONNX.
+        repo: "Masterx/parakeet-tdt-0.6b-ultra-onnx",
+        revision: "99b09f030a5a6efeaa13cf2cf54592100ce2c3f1",
+        files: &[
+            ModelFile {
+                name: "encoder-model.int8.onnx",
+                size: 652_183_214,
+                sha256: "46e78f85f1ae43b43bd359889c966da5c7ca401df60a42eeffc2e7699b357ba6",
+                from: None,
+            },
+            ModelFile {
+                name: "decoder_joint-model.int8.onnx",
+                size: 18_202_004,
+                sha256: "2276a335d4c8dc48686e931475a634595954956427d485830e1214c0d1a18d07",
+                from: None,
+            },
+            ModelFile {
+                name: "nemo128.onnx",
+                size: 139_764,
+                sha256: "a9fde1486ebfcc08f328d75ad4610c67835fea58c73ba57e3209a6f6cf019e9f",
+                from: Some((
+                    "istupakov/parakeet-tdt-0.6b-v3-onnx",
+                    "8f23f0c03c8761650bdb5b40aaf3e40d2c15f1ce",
+                )),
+            },
+            ModelFile {
+                name: "vocab.txt",
+                size: 93_939,
+                sha256: "d58544679ea4bc6ac563d1f545eb7d474bd6cfa467f0a6e2c1dc1c7d37e3c35d",
+                from: None,
+            },
+        ],
+        languages: "25 European languages",
+        download_mb: 670,
+        memory_mb: 900,
+        speed: 5,
+        accuracy: 5,
+        hardware: "Fast on any modern processor",
+    },
+    Model {
+        id: "parakeet-en",
+        name: "Parakeet English",
+        family: Family::Parakeet,
+        // NVIDIA Parakeet TDT 0.6B v2. In a comparison on 2026-11-02 it also beat Parakeet Unified
+        // EN on what dictation needs: Unified dropped full stops and wrote "10.30" for 10:30.
+        repo: "istupakov/parakeet-tdt-0.6b-v2-onnx",
+        revision: "0bbb45a3365852604aef28b538a8f066f4ccaa85",
+        files: &[
+            ModelFile {
+                name: "encoder-model.int8.onnx",
+                size: 652_184_014,
+                sha256: "3e0581fda6ab843888b51e56d7ee78b6d5bc3237ec113af1f732d1d5286aa155",
+                from: None,
+            },
+            ModelFile {
+                name: "decoder_joint-model.int8.onnx",
+                size: 8_998_286,
+                sha256: "a449f49acd68979d418651dd2dcb737cc0f1bf0225e009e29ee326354edbf7d3",
+                from: None,
+            },
+            ModelFile {
+                name: "nemo128.onnx",
+                size: 139_764,
+                sha256: "a9fde1486ebfcc08f328d75ad4610c67835fea58c73ba57e3209a6f6cf019e9f",
+                from: None,
+            },
+            ModelFile {
+                name: "vocab.txt",
+                size: 9_384,
+                sha256: "ec182b70dd42113aff6c5372c75cac58c952443eb22322f57bbd7f53977d497d",
+                from: None,
+            },
+        ],
+        languages: "English",
+        download_mb: 661,
+        memory_mb: 900,
+        speed: 5,
+        accuracy: 5,
+        hardware: "Fast on any modern processor",
+    },
+    Model {
+        id: "parakeet-de",
+        name: "Parakeet Deutsch",
+        family: Family::Parakeet,
+        // primeLine's German fine-tune of Parakeet v3, as ONNX. No one export has all the parts
+        // this engine runs: OpenVoiceOS's has the joined decoder, but its encoder only gives
+        // blanks (also in onnx-asr, checked 2026-11-02), and this one has a working encoder.
+        repo: "flozen1981/parakeet-primeline-onnx",
+        revision: "d548e25b9bfe559aa274f361892dc4ed5d64743a",
+        files: &[
+            ModelFile {
+                name: "encoder.int8.onnx",
+                size: 1_548_009,
+                sha256: "d4232f86718da0330167fb10789d1a35cffe6a60cd58239957943a8d9bc24c63",
+                from: None,
+            },
+            ModelFile {
+                name: "encoder.int8.onnx.data",
+                size: 650_776_320,
+                sha256: "d3b0d27912043d38a3c2ce4f2c03124be30bc1ff57d976302908954b2e8fe7bb",
+                from: None,
+            },
+            ModelFile {
+                name: "decoder_joint-model.int8.onnx",
+                size: 18_300_628,
+                sha256: "aeb26569504884d6ec81af217d9e02c6d36e9609667a0bb51d66c523d965e27b",
+                from: Some((
+                    "OpenVoiceOS/primeline-parakeet-onnx",
+                    "411093fba73540a11c451841a8e7922c13b0fb00",
+                )),
+            },
+            // The fine-tune didn't change the audio features, and its export leaves them out.
+            ModelFile {
+                name: "nemo128.onnx",
+                size: 139_764,
+                sha256: "a9fde1486ebfcc08f328d75ad4610c67835fea58c73ba57e3209a6f6cf019e9f",
+                from: Some((
+                    "istupakov/parakeet-tdt-0.6b-v3-onnx",
+                    "8f23f0c03c8761650bdb5b40aaf3e40d2c15f1ce",
+                )),
+            },
+            ModelFile {
+                name: "vocab.txt",
+                size: 93_939,
+                sha256: "d58544679ea4bc6ac563d1f545eb7d474bd6cfa467f0a6e2c1dc1c7d37e3c35d",
+                from: Some((
+                    "OpenVoiceOS/primeline-parakeet-onnx",
+                    "411093fba73540a11c451841a8e7922c13b0fb00",
+                )),
+            },
+        ],
+        languages: "German",
+        download_mb: 672,
         memory_mb: 900,
         speed: 5,
         accuracy: 5,
@@ -93,6 +241,7 @@ pub const MODELS: &[Model] = &[
             name: "ggml-large-v3-turbo-q5_0.bin",
             size: 574_041_195,
             sha256: "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
+            from: None,
         }],
         languages: "99 languages",
         download_mb: 574,
@@ -111,6 +260,7 @@ pub const MODELS: &[Model] = &[
             name: "ggml-small.bin",
             size: 487_601_967,
             sha256: "1be3a9b2063867b937e64e2ec7483364a79917e157fa98c5d94b5c1fffea987b",
+            from: None,
         }],
         languages: "99 languages",
         download_mb: 488,
@@ -129,6 +279,7 @@ pub const MODELS: &[Model] = &[
             name: "ggml-base.bin",
             size: 147_951_465,
             sha256: "60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe",
+            from: None,
         }],
         languages: "99 languages",
         download_mb: 148,
@@ -179,6 +330,10 @@ pub struct Settings {
     pub vocabulary: Vec<String>,
     /// Words suggested from History that the user turned down.
     pub dismissed: Vec<String>,
+    /// Learn from the words the user corrects, in History or right after a dictation.
+    pub learn: bool,
+    /// What Vorto heard and what the user wanted instead, newest last.
+    pub learned: Vec<Learned>,
     /// Applied to every dictation, before AI editing.
     pub replacements: Vec<Replacement>,
     pub ai: AiSettings,
@@ -196,6 +351,15 @@ pub struct Settings {
 pub struct Replacement {
     pub from: String,
     pub to: String,
+}
+/// A correction the user made: Vorto wrote `from`, the user wanted `to`.
+#[derive(Clone, Serialize, Deserialize, Default, PartialEq, Debug)]
+#[serde(default)]
+pub struct Learned {
+    pub from: String,
+    pub to: String,
+    /// How often the user made this correction.
+    pub count: u32,
 }
 #[derive(Clone, Serialize, Deserialize, Default, PartialEq)]
 #[serde(default)]
@@ -425,6 +589,8 @@ impl Default for Settings {
             autostart: false,
             vocabulary: Vec::new(),
             dismissed: Vec::new(),
+            learn: true,
+            learned: Vec::new(),
             replacements: Vec::new(),
             ai: AiSettings::default(),
             shortcuts: Shortcuts::default(),
@@ -477,6 +643,23 @@ impl Settings {
             r.to = r.to.trim().chars().take(400).collect();
         }
         self.replacements.retain(|r| !r.from.is_empty());
+        for l in &mut self.learned {
+            for word in [&mut l.from, &mut l.to] {
+                *word = word
+                    .chars()
+                    .filter(|c| !c.is_control())
+                    .collect::<String>()
+                    .trim()
+                    .chars()
+                    .take(80)
+                    .collect();
+            }
+            l.count = l.count.max(1);
+        }
+        self.learned
+            .retain(|l| !l.from.is_empty() && !l.to.is_empty() && l.from != l.to);
+        let extra = self.learned.len().saturating_sub(500);
+        self.learned.drain(..extra);
         self.replacements.truncate(500);
         for keys in [
             &mut self.shortcuts.paste_last,
@@ -729,6 +912,20 @@ impl Store {
             atomic_json(&self.root.join("history.json"), &self.history)?;
         }
         Ok(())
+    }
+    /// The user fixed the words of a dictation in History. The entry is found by its time and
+    /// words, because the list may have changed since the window showed it.
+    pub fn correct(&mut self, at: &str, old: &str, text: String) -> Result<bool> {
+        let Some(entry) = self
+            .history
+            .iter_mut()
+            .find(|e| e.at == at && e.text == old)
+        else {
+            return Ok(false);
+        };
+        entry.text = text;
+        atomic_json(&self.root.join("history.json"), &self.history)?;
+        Ok(true)
     }
     /// The newest entry never reached its app: show it as kept in Vorto.
     pub fn forget_app(&mut self, text: &str) -> Result<()> {

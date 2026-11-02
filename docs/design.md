@@ -5,71 +5,65 @@ doubt, copy what `ui/src/app.css` and the existing components already do.
 
 ## Character
 
-Quiet, light and precise, in the spirit of modern assistant apps: soft grey surfaces,
-black pill buttons, generous whitespace, one warm accent. Nothing glossy, no heavy
-shadows, no gradients on controls. Motion is short and purposeful.
+Dark and clear: neutral black, white and grey with no tint, and no color but status. One flat surface, hairlines instead of panels, small controls with
+a thin ring, one family of type. No filled blocks, no pills, no glows, no gradients beyond the faint highlight on a control. Hover is instant;
+motion is short and only where something moves.
 
 ## Brand mark
 
-Two squared quote marks over a text caret: your words becoming text.
+Two wings that meet in a V along one straight seam, with a shared tip: a word taking off.
 
-- Quotes: coral `#ff6250`. Caret: ink `#0b0b0c` on light, white on dark.
-- App icon: dark tile `#141416`, radius ~27% of the tile, coral quotes, white caret.
-- SVG source: `assets/logo.svg` (icon) and `ui/src/lib/Mark.svelte` (animated).
-- Listening: quotes bob with the voice level, caret stretches like typing.
-  Writing: three typing dots. Done: a short pop. Never blink while idle.
-- The resting float plays twice, then holds still: endless animations keep the window drawing.
+- App icon: near-black tile with a soft gradient and a thin light edge. The left wing is bright silver and casts a slight shadow on the darker right wing, like a fold. No gap between the wings.
+- SVG source: `assets/logo.svg` (icon) and `ui/src/lib/Mark.svelte` (flat, animated, right wing at 58 %).
+- Listening: the wings open with the voice. Writing: a slow beat. Done: one short beat. Never moves while idle.
 
-The recording pill shows the mark only while the microphone is on or text is being written.
-Outcomes use a round badge: green check (inserted), red cross (failed), grey info (neutral).
+The recording indicator shows the mark only while the microphone is on or text is being written.
+Outcomes use a small square badge: green check (inserted), red cross (failed), grey info (neutral).
 
 ## Color tokens
 
 | Token | Light | Dark | Use |
 |---|---|---|---|
-| `--bg` | `#fbfbfb` | `#111113` | Page background |
-| `--sidebar` | `#f5f5f6` | `#17171a` | Secondary panels |
-| `--surface` | `#ffffff` | `#1c1c20` | Cards, inputs |
-| `--group` | `#f3f3f4` | `#1a1a1d` | Grouped rows, chips |
-| `--border` | `#e9e9ec` | `#26262b` | Hairlines |
-| `--border-strong` | `#dcdce0` | `#323238` | Inputs, keycaps |
-| `--text` | `#0b0b0c` | `#f2f2f4` | Primary text |
-| `--muted` | `#6c6c74` | `#9b9ba4` | Secondary text |
-| `--faint` | `#a2a2aa` | `#6a6a73` | Hints, meta |
-| `--ink` | `#0b0b0c` | `#f4f4f6` | Primary buttons, toggles |
-| `--brand` | `#ff6250` | `#ff6250` | Accent, sparingly |
-| `--brand-soft` | `#fff0ec` | `#2a1a18` | Accent backgrounds |
-| `--green` | `#15a34a` | `#15a34a` | Success |
-| `--red` | `#ea2a42` | `#ea2a42` | Errors, recording |
+| `--bg` | `#ffffff` | `#0d0d0d` | The page, everywhere |
+| `--surface` | `#ffffff` | `#161616` | Menus and dialogs, raised above the page |
+| `--group` | black 4 % | white 5 % | Table heads, segmented tracks, chips |
+| `--row-hover` | `#f4f4f4` | `#1c1c1c` | A row under the pointer |
+| `--border` | black 8 % | white 8 % | Hairlines |
+| `--grid-line` | black 6 % | white 6 % | The two lines the page hangs between |
+| `--text` | `#161616` | `#fafafa` | Primary text |
+| `--muted` | `#5c5c5c` | `#aeaeae` | Secondary text |
+| `--faint` | `#808080` | `#808080` | Hints, meta, table heads |
+| `--ink` | `#242424` | `#fafafa` | The one primary button |
+| `--brand` | `#161616` | `#fafafa` | Switches on and focus: the strongest neutral, not a color |
+| `--green` | `#15803d` | `#22c55e` | Ready, success |
+| `--red` | `#d92e3c` | `#f1484f` | Errors, destructive actions |
 
-The recording indicator is always dark: `rgba(17,17,19,.96)` with white text.
+The recording indicator is always dark: `#1c1c1c` with a thin ring and white text.
 
 ## Typography
 
-- Family: Inter Variable, weight axis only (`@fontsource-variable/inter` in the app; the
-  website serves the same woff2 files from `site/fonts`, no font service), features `cv11`,
-  `ss01`, `ss03`. Fallback Segoe UI.
-- Scale: 12.5 meta, 13.5 small UI, 14 body, 15–16 lead, 17 section, 26 page title,
-  32–38 hero. Headings weight 600–620 with negative tracking (-0.02em to -0.03em).
-- Line height 1.45 for UI text, 1.5–1.55 for paragraphs.
+- Inter Variable everywhere, 13 px, weight 440, line height 20, tracking -0.04 px (`@fontsource-variable/inter`
+  in the app; the website serves the same woff2 files from `site/fonts`, no font service). Fallback Segoe UI.
+- Page titles: 28, weight 600, tracking -0.035 em. Section titles: 15, weight 600. Big figures: tight tracking.
+  Emphasis in text: weight 530. Numbers are tabular.
 
 ## Shape and spacing
 
-- Base unit 4 px; common gaps 8, 12, 14, 16, 22, 28.
-- Radii: 8 small, 10 inputs, 12 menus, 16 groups, 18–22 cards, 999 pills. Media inside a
-  card sits on its padding with a concentric radius (20 px card, 8 px padding, 12 px media).
-- Buttons are pills: primary `--ink` fill, secondary `#ebebee`, ghost transparent.
-  Heights 30 (sm), 36, 42 (lg). Weight ~560.
-- Cards: `--surface`, 1px `--border`, `0 1px 2px rgba(16,16,20,.04)` shadow.
-- Settings rows: title + muted description left, control right, hairline between rows.
-  Rows that can't apply are hidden with a slide, not disabled. A row may skip its description,
-  or its control when it states a fact.
+- Base unit 4 px; common gaps 8, 12, 16, 24, 40.
+- Radii: 3 chips, 4 small controls and keycaps, 6 controls and rows, 8 menus and dialogs. Nothing rounder,
+  dots excepted.
+- Buttons: 28 high (24 small, 32 large). Secondary is the default: `--control` with `--control-shadow`,
+  a ring thinner than a border. Primary marks at most one action per screen.
+- Rows sit directly on the page with a hairline between them, 56 high. Lists are rows with a fill on hover,
+  not cards. A table has a filled head row and bare rows, like Voice models.
+- Settings rows: title + muted description left, control right. Rows that can't apply are hidden, not
+  disabled. A row may skip its description, or its control when it states a fact.
+- Navigation runs along the top. The page is at most 880 wide, between two hairlines.
 
 ## Motion
 
-- Easing `cubic-bezier(0.22, 1, 0.36, 1)`; 140 ms for hover, 220–320 ms for state,
-  420–520 ms for entrances. Springy overshoot only for small elements appearing.
-- Entrances grow from small to full size, never pop in instantly.
+- Hover and page changes are instant. 85 to 180 ms for what moves (a switch, the pill).
+  Easing `cubic-bezier(0.22, 1, 0.36, 1)`.
 - Respect `prefers-reduced-motion`.
 
 ## Voice
@@ -93,15 +87,13 @@ Dictate item when dictation can't work.
 
 ## Website
 
-`site/index.html` uses these tokens and components, with a few deliberate differences:
+`site/index.html` is one screen and nothing more: the headline, the download and the show. It's dark only, neutral black with one
+white sheet of paper, folded at the corner like the mark. It has one idea, which plays by itself: the pill, the same one the app shows, listens, the words leave it as they're
+said, the filler burns up and every real word flies to its place on the sheet, turning from white to black as it crosses the paper. A misheard word is learned on the way. Browsers keep sound off until a click, so the show starts silent; a press replays the scene out loud.
 
-- Focus ring: a solid 2 px outline in the text color, not brand at 55 %, so it keeps 3:1 on
-  every surface, including the dark privacy card.
-- Segmented control: in dark mode the thumb is lighter (`#3a3a40`) than the app's
-  `--surface`, it has a 1 px ring, and the chosen label is weight 600. Inside an inset panel
-  the track is recessed (`#19191c` in dark mode). Selection never relies on the thumb alone.
-- Settings rows inside cards are compact: gap 16, rows 60 px, padding 10, and a
-  `--row-line` hairline (`#e6e6ea` / `#303036`) that stays visible on the inset panel.
-- Header controls share one height of 30 px (`.btn.sm`, icon buttons, nav links).
-- Large marks (40 px and up) show the typing dots while writing; smaller ones keep a steady
-  caret, like `simple` in `Mark.svelte`.
+- Five scenes in `scripts/voice-lines.json`, one of them German, each played in turn. `scripts/voice.mjs` makes the
+  voices with Eleven v4 through OpenRouter, and `scripts/voice-times.py` measures when each word is said.
+- The mark in the pill opens with the real loudness of the voice. Without sound or audio, the same scene plays on estimated times.
+- A canvas behind the page draws words and sparks, only while something moves. `prefers-reduced-motion` shows the final sentence.
+
+The README's screenshots of the app come from the mock UI (`ui/src/lib/mock.js`).

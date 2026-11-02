@@ -10,6 +10,18 @@
   let query = $state("");
   let confirm = $state(false);
   let copied = $state("");
+  // The dictation being fixed: its time and words identify it, and `draft` is the new text.
+  let fixing = $state(null);
+  let draft = $state("");
+  function fix(entry) {
+    fixing = entry;
+    draft = entry.text;
+  }
+  function saveFix() {
+    if (fixing) act("correctHistory", { at: fixing.at, old: fixing.text, text: draft });
+    fixing = null;
+  }
+  const isFixing = (entry) => fixing && fixing.at === entry.at && fixing.text === entry.text;
 
   const label = (date) => {
     const today = new Date();
@@ -93,6 +105,35 @@
   });
 </script>
 
+{#snippet editor()}
+  <form
+    class="editor"
+    onsubmit={(e) => {
+      e.preventDefault();
+      saveFix();
+    }}
+  >
+    <textarea
+      class="field selectable"
+      aria-label="Fix this dictation"
+      bind:value={draft}
+      {@attach (node) => node.focus()}
+      onkeydown={(e) => {
+        if (e.key === "Escape") fixing = null;
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          saveFix();
+        }
+      }}
+    ></textarea>
+    <div class="editor-actions">
+      <span class="muted">{s.settings.learn ? "Vorto learns the words you fix" : ""}</span>
+      <button class="btn ghost sm" type="button" onclick={() => (fixing = null)}>Cancel</button>
+      <button class="btn secondary sm">Save</button>
+    </div>
+  </form>
+{/snippet}
+
 <header class="page-head">
   <h1>History</h1>
   {#if s.history.length}
@@ -143,6 +184,10 @@
         <div class="list" transition:slide={{ duration: 200 }}>
           {#each group.items as entry, i (i)}
             <div class="entry-wrap">
+              {#if isFixing(entry)}
+                {@render editor()}
+              {:else}
+              <button class="fix" aria-label="Fix this dictation" title="Fix a word, and Vorto learns it" onclick={() => fix(entry)}><Icon name="pen" size={14} /></button>
               <button class="entry compact" onclick={() => copy(entry, `a${gi}:${i}`)}>
                 <span class="body">
                   <span class="text">{entry.text}</span>
@@ -159,6 +204,7 @@
               {#if entry.raw}
                 <button class="original" onclick={() => copy(entry, `a${gi}:${i}`, entry.raw)} title={entry.raw}>Copy as spoken</button>
               {/if}
+              {/if}
             </div>
           {/each}
         </div>
@@ -170,6 +216,10 @@
     <div class="list">
       {#each group.items as entry, i (i)}
         <div class="entry-wrap">
+        {#if isFixing(entry)}
+          {@render editor()}
+        {:else}
+        <button class="fix" aria-label="Fix this dictation" title="Fix a word, and Vorto learns it" onclick={() => fix(entry)}><Icon name="pen" size={14} /></button>
         <button class="entry" onclick={() => copy(entry, `${gi}:${i}`)}>
           <AppIcon name={entry.app} size={30} />
           <span class="body">
@@ -186,6 +236,7 @@
         </button>
         {#if entry.raw}
           <button class="original" onclick={() => copy(entry, `${gi}:${i}`, entry.raw)} title={entry.raw}>Copy as spoken</button>
+        {/if}
         {/if}
         </div>
       {/each}
@@ -212,12 +263,50 @@
 {/if}
 
 <style>
+  .editor {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 12px;
+  }
+  .editor textarea {
+    min-height: 64px;
+  }
+  .editor-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .editor-actions .muted {
+    flex: 1;
+  }
+  .fix {
+    position: absolute;
+    z-index: 1;
+    top: 10px;
+    right: 44px;
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    color: var(--faint);
+    opacity: 0;
+  }
+  .entry-wrap:hover .fix,
+  .fix:focus-visible {
+    opacity: 1;
+  }
+  .fix:hover {
+    background: var(--hover);
+    color: var(--text);
+  }
   .paused {
     display: flex;
     align-items: center;
     gap: 6px;
     margin: -10px 2px 12px;
-    font-size: 12.5px;
+    font-size: 12px;
     color: var(--faint);
   }
   .search {
@@ -227,7 +316,7 @@
     height: 40px;
     padding: 0 8px 0 13px;
     margin-bottom: 6px;
-    border-radius: 12px;
+    border-radius: 6px;
     background: var(--group);
     color: var(--faint);
     border: 1px solid transparent;
@@ -252,9 +341,7 @@
   .list {
     display: flex;
     flex-direction: column;
-    padding: 4px;
-    border-radius: var(--r-lg);
-    background: var(--group);
+    margin: 0 -12px;
   }
   .grow {
     flex: 1;
@@ -267,9 +354,10 @@
     align-items: center;
     gap: 10px;
     width: 100%;
-    margin: 18px 0 8px;
-    padding: 4px 6px 4px 4px;
-    border-radius: 10px;
+    margin: 16px -4px 2px;
+    width: calc(100% + 8px);
+    padding: 4px;
+    border-radius: 6px;
     text-align: left;
   }
   .app-head:first-of-type {
@@ -280,17 +368,12 @@
   }
   .app-title {
     font-size: 14px;
-    font-weight: 560;
+    font-weight: 530;
   }
   .count {
-    min-width: 22px;
-    height: 20px;
-    padding: 0 7px;
-    border-radius: 999px;
-    background: var(--control);
-    font-size: 11.5px;
-    font-weight: 560;
-    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--faint);
     display: grid;
     place-items: center;
   }
@@ -318,11 +401,12 @@
     right: 12px;
     bottom: 9px;
     height: 22px;
-    padding: 0 9px;
-    border-radius: 999px;
+    padding: 0 7px;
+    border-radius: 4px;
     background: var(--control);
+    box-shadow: var(--control-shadow);
     font-size: 12px;
-    font-weight: 540;
+    font-weight: 530;
     opacity: 0;
     transition: opacity var(--fast) ease;
   }
@@ -338,13 +422,11 @@
     align-items: flex-start;
     gap: 16px;
     padding: 12px;
-    border-radius: 12px;
+    border-radius: 6px;
     text-align: left;
-    transition: background var(--fast) ease;
   }
   .entry:hover {
-    background: var(--surface);
-    box-shadow: var(--shadow-card);
+    background: var(--row-hover);
   }
   .body {
     flex: 1;
@@ -407,7 +489,7 @@
   .dialog {
     width: 380px;
     padding: 22px;
-    border-radius: 18px;
+    border-radius: 8px;
     background: var(--surface);
     box-shadow: var(--shadow-pop);
   }

@@ -20,21 +20,29 @@
 <style>
   .toggle {
     position: relative;
-    width: 38px;
-    height: 22px;
-    border-radius: 999px;
-    background: var(--track);
-    transition: background 180ms ease;
+    width: 28px;
+    height: 18px;
+    border-radius: 4px;
+    background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.2)), var(--track);
+    box-shadow:
+      inset 0 -0.5px 0 rgba(255, 255, 255, 0.1),
+      inset 0 0 0 0.5px rgba(255, 255, 255, 0.16);
     flex-shrink: 0;
   }
   .toggle:hover {
-    background: var(--track-hover);
+    background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.2)), var(--track-hover);
+  }
+  /* The target is larger than what it shows. */
+  .toggle::before {
+    content: "";
+    position: absolute;
+    inset: -8px -6px;
   }
   .toggle.on {
-    background: var(--ink);
-  }
-  .on .knob {
-    background: var(--knob-on);
+    background: var(--brand);
+    box-shadow:
+      inset 0 0 0 0.5px rgba(0, 0, 0, 0.2),
+      inset 0 1px 1px rgba(0, 0, 0, 0.1);
   }
   .toggle:disabled {
     opacity: 0.4;
@@ -44,22 +52,15 @@
     position: absolute;
     top: 2px;
     left: 2px;
-    width: 18px;
-    height: 18px;
-    border-radius: 999px;
+    width: 14px;
+    height: 14px;
+    border-radius: 2.5px;
     background: var(--knob);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.22);
-    transition:
-      transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
-      width 160ms ease;
+    box-shadow: 0 0.5px 1px rgba(0, 0, 0, 0.4);
+    transition: transform 120ms var(--ease);
   }
   .on .knob {
-    transform: translateX(16px);
-  }
-  .toggle:active .knob {
-    width: 21px;
-  }
-  .on:active .knob {
-    transform: translateX(13px);
+    transform: translateX(10px);
+    background: var(--knob-on);
   }
 </style>

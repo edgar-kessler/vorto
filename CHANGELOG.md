@@ -5,6 +5,17 @@ All notable changes to Vorto are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and Vorto follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+- Vorto learns from you. Fix a misheard word right after dictating, or with the pencil in History, and it's remembered. See and remove what it learned on the Dictionary page.
+- Parakeet now uses your dictionary: it checks your terms against what you said, so a term goes in only where the audio supports it.
+- New voice models: Parakeet Ultra, with fewer errors than v3 at the same speed and now the recommended one, Parakeet Deutsch, primeLine's German fine-tune, and Parakeet English.
+- Voice models says which model fits the language you mostly speak.
+- The last word no longer gets cut off when you let go of the shortcut early.
+- New look, dark and clear: neutral black and white, hairlines instead of cards, navigation along the top, and a new logo.
+- A new setup: pick the language you speak and get the right voice model, then try it right away on a sheet of paper.
+- A new website: one screen, and a dictation that plays by itself.
+
 ## [Unreleased]
 
 ## [1.0.2] - 2026-09-22

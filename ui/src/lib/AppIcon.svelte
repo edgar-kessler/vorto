@@ -50,6 +50,6 @@
     background: var(--tint);
     color: #fff;
     font-size: calc(var(--size) * 0.46);
-    font-weight: 650;
+    font-weight: 530;
   }
 </style>

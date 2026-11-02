@@ -409,7 +409,7 @@
   .dialog {
     width: 400px;
     padding: 24px;
-    border-radius: 20px;
+    border-radius: 8px;
     background: var(--surface);
     box-shadow:
       var(--shadow-pop),
@@ -421,13 +421,13 @@
     width: 42px;
     height: 42px;
     margin-bottom: 14px;
-    border-radius: 12px;
+    border-radius: 6px;
     background: color-mix(in srgb, var(--red) 14%, transparent);
     color: var(--red);
   }
   .dialog p {
     margin-top: 8px;
-    font-size: 13.5px;
+    font-size: 13px;
     line-height: 1.55;
   }
   .dialog-actions {
