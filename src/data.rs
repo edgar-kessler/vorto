@@ -838,10 +838,7 @@ impl Store {
     pub fn open() -> Result<Self> {
         let root = std::env::var_os("VORTO_DATA_DIR")
             .map(PathBuf::from)
-            .unwrap_or_else(|| {
-                PathBuf::from(std::env::var_os("LOCALAPPDATA").unwrap_or_else(|| ".".into()))
-                    .join(APP_ID)
-            });
+            .unwrap_or_else(|| system_data_dir().join(APP_ID));
         fs::create_dir_all(root.join("models"))?;
         let path = root.join("settings.json");
         let fresh = !path.exists();
@@ -966,6 +963,19 @@ impl Store {
         Ok(())
     }
 }
+/// Where each system keeps an app's own data for this user.
+fn system_data_dir() -> PathBuf {
+    let var = |name: &str| std::env::var_os(name).map(PathBuf::from);
+    let home = || var("HOME").unwrap_or_else(|| ".".into());
+    if cfg!(windows) {
+        var("LOCALAPPDATA").unwrap_or_else(|| ".".into())
+    } else if cfg!(target_os = "macos") {
+        home().join("Library/Application Support")
+    } else {
+        var("XDG_DATA_HOME").unwrap_or_else(|| home().join(".local/share"))
+    }
+}
+
 pub fn atomic_json(path: &Path, data: &impl Serialize) -> Result<()> {
     let mut file =
         tempfile::NamedTempFile::new_in(path.parent().context("Missing data directory")?)?;

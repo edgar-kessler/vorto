@@ -2,7 +2,6 @@
 //! it goes down when dictation starts and comes back up when it ends, a quiet tick says the
 //! text is in place, and dull keystrokes mean cancel or error. No tones, no sound files.
 use std::{f32::consts::TAU, sync::OnceLock};
-use windows_sys::Win32::Media::Audio::{PlaySoundW, SND_ASYNC, SND_MEMORY, SND_NODEFAULT};
 
 const RATE: u32 = 48_000;
 
@@ -27,7 +26,13 @@ pub fn play(sound: Sound) {
             wav(&error()),
         ]
     });
-    let bytes = &wavs[sound as usize];
+    let bytes: &'static [u8] = &wavs[sound as usize];
+    output(bytes);
+}
+
+#[cfg(windows)]
+fn output(bytes: &'static [u8]) {
+    use windows_sys::Win32::Media::Audio::{PlaySoundW, SND_ASYNC, SND_MEMORY, SND_NODEFAULT};
     // The bytes live as long as the process, as SND_ASYNC with SND_MEMORY requires.
     unsafe {
         PlaySoundW(
@@ -36,6 +41,46 @@ pub fn play(sound: Sound) {
             SND_MEMORY | SND_ASYNC | SND_NODEFAULT,
         );
     }
+}
+
+/// Plays on the default output at whatever rate it runs, on a short-lived thread.
+#[cfg(not(windows))]
+fn output(bytes: &'static [u8]) {
+    use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
+    std::thread::spawn(move || {
+        let samples: Vec<f32> = bytes[44..]
+            .chunks_exact(2)
+            .map(|b| i16::from_le_bytes([b[0], b[1]]) as f32 / i16::MAX as f32)
+            .collect();
+        let Some(device) = cpal::default_host().default_output_device() else {
+            return;
+        };
+        let Ok(config) = device.default_output_config() else {
+            return;
+        };
+        let config: cpal::StreamConfig = config.into();
+        let channels = config.channels as usize;
+        let step = RATE as f32 / config.sample_rate.0 as f32;
+        let seconds = samples.len() as f32 / RATE as f32;
+        let mut at = 0f32;
+        let stream = device.build_output_stream(
+            &config,
+            move |out: &mut [f32], _| {
+                for frame in out.chunks_mut(channels) {
+                    let value = samples.get(at as usize).copied().unwrap_or(0.0);
+                    frame.fill(value);
+                    at += step;
+                }
+            },
+            |_| {},
+            None,
+        );
+        if let Ok(stream) = stream {
+            if stream.play().is_ok() {
+                std::thread::sleep(std::time::Duration::from_secs_f32(seconds + 0.05));
+            }
+        }
+    });
 }
 
 fn buffer(ms: u32) -> Vec<f32> {

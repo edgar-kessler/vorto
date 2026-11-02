@@ -31,7 +31,8 @@ impl LocalWhisper {
 
 /// This build has the graphics backend, and this PC has the Vulkan loader it needs.
 pub fn gpu_available() -> bool {
-    cfg!(feature = "vulkan") && crate::system::vulkan_loader_present()
+    cfg!(target_os = "macos")
+        || (cfg!(feature = "vulkan") && crate::system::vulkan_loader_present())
 }
 
 impl TranscriptionProvider for LocalWhisper {

@@ -26,7 +26,6 @@ use vorto::{
     supervisor::{Phase, Supervisor},
     vocab,
 };
-use windows_sys::Win32::UI::{Shell::ShellExecuteW, WindowsAndMessaging::SW_SHOWNORMAL};
 
 /// Recording stops on its own after this long.
 const MAX_RECORDING_SECS: u64 = 120;
@@ -457,13 +456,14 @@ fn join_text(a: &str, b: &str) -> String {
     }
 }
 
-fn write_wav(samples: &[f32]) -> anyhow::Result<tempfile::NamedTempFile> {
+/// Windows deletes the recording when the last handle closes, even if Vorto is killed.
+#[cfg(windows)]
+fn temporary_wav() -> std::io::Result<tempfile::NamedTempFile> {
     use std::os::windows::fs::OpenOptionsExt;
     use windows_sys::Win32::Storage::FileSystem::{
         FILE_ATTRIBUTE_TEMPORARY, FILE_FLAG_DELETE_ON_CLOSE,
     };
-    // Windows deletes the recording when the last handle closes, even if Vorto is killed.
-    let file = tempfile::Builder::new()
+    tempfile::Builder::new()
         .prefix("vorto-")
         .suffix(".wav")
         .make(|path| {
@@ -473,7 +473,19 @@ fn write_wav(samples: &[f32]) -> anyhow::Result<tempfile::NamedTempFile> {
                 .create_new(true)
                 .custom_flags(FILE_ATTRIBUTE_TEMPORARY | FILE_FLAG_DELETE_ON_CLOSE)
                 .open(path)
-        })?;
+        })
+}
+/// Deleted when dropped.
+#[cfg(not(windows))]
+fn temporary_wav() -> std::io::Result<tempfile::NamedTempFile> {
+    tempfile::Builder::new()
+        .prefix("vorto-")
+        .suffix(".wav")
+        .tempfile()
+}
+
+fn write_wav(samples: &[f32]) -> anyhow::Result<tempfile::NamedTempFile> {
+    let file = temporary_wav()?;
     let mut writer = hound::WavWriter::new(
         file.reopen()?,
         hound::WavSpec {
@@ -1235,26 +1247,8 @@ impl Controller {
                 }
             }
             Action::OpenDataFolder => {
-                use std::os::windows::ffi::OsStrExt;
-                let folder: Vec<u16> = self
-                    .store
-                    .root
-                    .as_os_str()
-                    .encode_wide()
-                    .chain(Some(0))
-                    .collect();
-                let open: Vec<u16> = "open".encode_utf16().chain(Some(0)).collect();
-                // Through the shell: a bare "explorer.exe" is looked up next to vorto.exe first.
-                std::thread::spawn(move || unsafe {
-                    ShellExecuteW(
-                        0,
-                        open.as_ptr(),
-                        folder.as_ptr(),
-                        std::ptr::null(),
-                        std::ptr::null(),
-                        SW_SHOWNORMAL,
-                    );
-                });
+                let folder = self.store.root.to_string_lossy().into_owned();
+                std::thread::spawn(move || crate::open_url(&folder));
             }
             Action::RefreshMicrophones => self.microphones = audio::devices(),
             Action::TestMicrophone { on } => {

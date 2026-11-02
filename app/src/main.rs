@@ -1,10 +1,26 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod ai;
+#[cfg(windows)]
+mod caret;
+#[cfg(not(windows))]
+#[path = "unix/caret.rs"]
 mod caret;
 mod controller;
+#[cfg(windows)]
+mod hotkey;
+#[cfg(not(windows))]
+#[path = "unix/hotkey.rs"]
 mod hotkey;
 mod log;
+#[cfg(windows)]
 mod native;
+#[cfg(not(windows))]
+#[path = "unix/native.rs"]
+mod native;
+#[cfg(windows)]
+mod secret;
+#[cfg(not(windows))]
+#[path = "unix/secret.rs"]
 mod secret;
 mod sound;
 mod update;
@@ -125,6 +141,9 @@ fn tell_controller(app: &AppHandle, msg: controller::Msg) {
 
 /// A hidden WebView2 keeps rendering and running timers unless it is told it can't be seen.
 /// Suspended, it also frees memory while Vorto sits in the tray.
+#[cfg(not(windows))]
+fn set_awake(_: &WebviewWindow, _: bool) {}
+#[cfg(windows)]
 fn set_awake(window: &WebviewWindow, awake: bool) {
     let _ = window.with_webview(move |webview| unsafe {
         use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2_3;
@@ -218,6 +237,11 @@ fn show_window(app: AppHandle) {
 
 /// The installer sets up WebView2, but a copied exe or a broken runtime would otherwise fail
 /// without a word.
+#[cfg(not(windows))]
+fn webview2_installed() -> bool {
+    true
+}
+#[cfg(windows)]
 fn webview2_installed() -> bool {
     use webview2_com::Microsoft::Web::WebView2::Win32::GetAvailableCoreWebView2BrowserVersionString;
     use windows_core::{PCWSTR, PWSTR};
@@ -232,6 +256,16 @@ fn webview2_installed() -> bool {
     found
 }
 
+#[cfg(not(windows))]
+pub fn open_url(url: &str) {
+    let opener = if cfg!(target_os = "macos") {
+        "open"
+    } else {
+        "xdg-open"
+    };
+    let _ = std::process::Command::new(opener).arg(url).spawn();
+}
+#[cfg(windows)]
 pub fn open_url(url: &str) {
     use windows_sys::Win32::UI::{Shell::ShellExecuteW, WindowsAndMessaging::SW_SHOWNORMAL};
     let wide = |s: &str| s.encode_utf16().chain(Some(0)).collect::<Vec<u16>>();
@@ -248,6 +282,11 @@ pub fn open_url(url: &str) {
 }
 
 /// Physical memory in GB, or None when Windows won't say.
+#[cfg(not(windows))]
+fn memory_gb() -> Option<f64> {
+    None
+}
+#[cfg(windows)]
 fn memory_gb() -> Option<f64> {
     use windows_sys::Win32::System::SystemInformation::{GlobalMemoryStatusEx, MEMORYSTATUSEX};
     let mut status: MEMORYSTATUSEX = unsafe { std::mem::zeroed() };
@@ -394,7 +433,12 @@ fn setup(
     let hud = app
         .get_webview_window("hud")
         .ok_or("The recording indicator window is missing.")?;
+    #[cfg(not(windows))]
+    native::init(app.handle().clone());
+    #[cfg(windows)]
     let hud_hwnd = hud.hwnd()?.0 as isize;
+    #[cfg(not(windows))]
+    let hud_hwnd = native::HUD;
     // tao rewrites the extended styles when it changes window flags, so this runs first.
     let _ = hud.set_ignore_cursor_events(true);
     native::prepare_overlay(hud_hwnd);
@@ -403,7 +447,10 @@ fn setup(
     let flash = app
         .get_webview_window("flash")
         .ok_or("The highlight window is missing.")?;
+    #[cfg(windows)]
     let flash_hwnd = flash.hwnd()?.0 as isize;
+    #[cfg(not(windows))]
+    let flash_hwnd = native::FLASH;
     let _ = flash.set_ignore_cursor_events(true);
     native::prepare_overlay(flash_hwnd);
 

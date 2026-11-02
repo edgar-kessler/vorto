@@ -5,7 +5,15 @@
 mod download;
 #[cfg(feature = "parakeet")]
 mod parakeet;
+#[cfg(windows)]
 mod proxy;
+#[cfg(not(windows))]
+#[path = "proxy_unix.rs"]
+mod proxy;
+#[cfg(windows)]
+mod system;
+#[cfg(not(windows))]
+#[path = "system_unix.rs"]
 mod system;
 mod whisper;
 

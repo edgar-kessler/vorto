@@ -175,7 +175,7 @@ fn beside_me(name: &str) -> Result<PathBuf> {
 
 /// Hands over to the app itself. It runs once: a second start only passes on what it was asked.
 fn launch(args: &[&str]) -> Result<()> {
-    let app = beside_me("vorto.exe")?;
+    let app = beside_me(if cfg!(windows) { "vorto.exe" } else { "vorto" })?;
     Process::new(&app)
         .args(args)
         .spawn()
@@ -184,10 +184,17 @@ fn launch(args: &[&str]) -> Result<()> {
 }
 
 fn running() -> bool {
-    Process::new("tasklist")
-        .args(["/FI", "IMAGENAME eq vorto.exe", "/NH"])
-        .output()
-        .is_ok_and(|o| String::from_utf8_lossy(&o.stdout).contains("vorto.exe"))
+    if cfg!(windows) {
+        Process::new("tasklist")
+            .args(["/FI", "IMAGENAME eq vorto.exe", "/NH"])
+            .output()
+            .is_ok_and(|o| String::from_utf8_lossy(&o.stdout).contains("vorto.exe"))
+    } else {
+        Process::new("pgrep")
+            .args(["-x", "vorto"])
+            .output()
+            .is_ok_and(|o| o.status.success())
+    }
 }
 
 fn status(store: &Store) {
