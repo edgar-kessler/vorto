@@ -7,7 +7,9 @@ export VORTO_DATA_DIR="$(mktemp -d)"
 case "$(uname -s)" in
   Darwin)
     mount=$(mktemp -d)
-    hdiutil attach -quiet -nobrowse -mountpoint "$mount" packages/Vorto-macOS.dmg
+    hdiutil info
+    hdiutil imageinfo packages/Vorto-macOS.dmg | head -20
+    hdiutil attach -nobrowse -mountpoint "$mount" packages/Vorto-macOS.dmg
     bin="$mount/Vorto.app/Contents/MacOS"
     ls -la "$mount" "$mount/Vorto.app/Contents" "$bin"
     test -x "$bin/vorto-app"
