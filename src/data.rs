@@ -341,6 +341,8 @@ pub struct Settings {
     pub shortcuts: Shortcuts,
     /// Key clicks when dictation starts and ends, and a chime when the text is in place.
     pub sounds: bool,
+    /// No window and no tray, only the recording pill: everything else goes through the CLI.
+    pub headless: bool,
     /// How fast the user types, for the time Stats says dictation saved.
     pub typing_wpm: u32,
     /// "system", "light" or "dark".
@@ -597,6 +599,7 @@ impl Default for Settings {
             typing_wpm: 40,
             theme: "system".into(),
             sounds: true,
+            headless: false,
             highlight: true,
         }
     }

@@ -111,6 +111,10 @@ The tray menu is rebuilt on the main thread when the last five dictations or the
 
 Audio reaches the engine as temporary WAV files opened with `FILE_FLAG_DELETE_ON_CLOSE`, so Windows deletes them when the last handle closes, even if Vorto is killed.
 
+## The command line
+
+`src/bin/vorto-cli.rs` is a small console program with no Tauri in it, installed next to `vorto.exe` as `vorto.com`, which Windows prefers when you type `vorto`. It works on the same files in the data folder through `Store`, and asks the voice engine to download models. The app notices a changed `settings.json` within a second (`pick_up_settings`) and applies it like a change from its own window. `vorto start` launches `vorto.exe --headless`, which destroys the main window and builds no tray, and `vorto stop` launches `vorto.exe --quit`, which the single-instance plugin passes to the running app. `site/install.ps1` runs the installer silently and adds the install folder to the user's PATH.
+
 ## The engine
 
 The engine is a small process without a window. It reads one JSON command per line on standard input, writes one JSON event per line on standard output, and writes diagnostics to standard error, which the supervisor sends to `engine.log`. It exits when its input closes.

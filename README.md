@@ -133,6 +133,26 @@ Turn on **AI editing** and a language model rewrites each dictation before Vorto
 
 Small local models are fast but make mistakes. Models from about 3 billion parameters, such as `qwen2.5:3b` or `gemma3:4b` in Ollama, follow the instructions much more reliably. Vorto loads a local model while you speak, so it's ready when you let go.
 
+### From the terminal
+
+Install from PowerShell, with no clicks:
+
+```powershell
+irm https://edgar-kessler.github.io/vorto/install.ps1 | iex
+```
+
+Everything in Settings can be set with the `vorto` command, also while Vorto runs. `vorto start` runs only the recording pill, with no window or tray; set `headless` to keep it that way.
+
+```powershell
+vorto models download parakeet-de
+vorto shortcut "Right Ctrl"
+vorto settings set sounds false
+vorto words add Kubernetes
+vorto start
+```
+
+`vorto help` lists the rest. API keys for AI editing are only set in the window, for now.
+
 ### Dictionary, Stats and History
 
 - **Dictionary:** names and terms Vorto should spell your way (Parakeet checks them against what you said, Whisper listens for them, AI editing keeps them), with suggestions from your dictations. **Replacements** swap words in every dictation, and `\n` stands for a line break.

@@ -7,7 +7,8 @@
       "binaries/runtime/vcruntime140_1.dll": "vcruntime140_1.dll",
       "binaries/runtime/msvcp140.dll": "msvcp140.dll",
       "binaries/runtime/msvcp140_1.dll": "msvcp140_1.dll",
-      "binaries/THIRD-PARTY-NOTICES.txt": "THIRD-PARTY-NOTICES.txt"
+      "binaries/THIRD-PARTY-NOTICES.txt": "THIRD-PARTY-NOTICES.txt",
+      "binaries/vorto.com": "vorto.com"
     }
   }
 }
