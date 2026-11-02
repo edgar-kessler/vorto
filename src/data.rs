@@ -575,12 +575,7 @@ impl Default for Settings {
             model: DEFAULT_MODEL.into(),
             language: "auto".into(),
             microphone: String::new(),
-            // Most Mac keyboards have no right Control key.
-            hotkey: vec![if cfg!(target_os = "macos") {
-                VK_RMENU
-            } else {
-                VK_RCONTROL
-            }],
+            hotkey: vec![DEFAULT_HOTKEY],
             toggle: false,
             idle_minutes: 0,
             paste: true,
@@ -622,7 +617,7 @@ impl Settings {
             || self.hotkey.len() > 4
             || self.hotkey.iter().any(|&k| k == 0 || k > 0xFE)
         {
-            self.hotkey = vec![VK_RCONTROL];
+            self.hotkey = vec![DEFAULT_HOTKEY];
         }
         if !["top", "bottom"].contains(&self.hud_position.as_str()) {
             self.hud_position = "top".into();
@@ -723,8 +718,12 @@ impl Settings {
         self.ai.enabled && !self.ai.providers.is_empty()
     }
 }
-pub const VK_RCONTROL: u32 = 0xA3;
-pub const VK_RMENU: u32 = 0xA5;
+/// Right Control, or Right Option on a Mac: most Mac keyboards have no right Control key.
+pub const DEFAULT_HOTKEY: u32 = if cfg!(target_os = "macos") {
+    0xA5
+} else {
+    0xA3
+};
 
 /// In combinations either side of a modifier works, and keys read Ctrl, Alt, Shift, Win, key.
 /// A single modifier such as Right Ctrl keeps its side.
@@ -1025,7 +1024,7 @@ mod tests {
         };
         words.validate();
         assert_eq!(words.vocabulary, ["Vorto"]);
-        assert_eq!(s.hotkey, vec![VK_RCONTROL]);
+        assert_eq!(s.hotkey, vec![DEFAULT_HOTKEY]);
         assert_eq!(s.idle_minutes, 0);
     }
     #[test]
@@ -1044,7 +1043,7 @@ mod tests {
     fn missing_preferences_use_defaults() {
         let s: Settings = serde_json::from_str(r#"{"toggle":true}"#).unwrap();
         assert!(s.toggle);
-        assert_eq!(s.hotkey, vec![VK_RCONTROL]);
+        assert_eq!(s.hotkey, vec![DEFAULT_HOTKEY]);
         assert_eq!(s.model, DEFAULT_MODEL);
     }
     #[test]
