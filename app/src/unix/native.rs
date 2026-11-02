@@ -4,17 +4,17 @@ use enigo::{Direction, Enigo, Key, Keyboard, Settings as EnigoSettings};
 use std::{collections::HashMap, sync::OnceLock, time::Duration};
 use tauri::{AppHandle, Manager, PhysicalPosition, PhysicalSize};
 
-pub type HWND = isize;
+pub type Window = isize;
 /// The overlay windows, in place of the handles Windows gives them.
-pub const HUD: HWND = 1;
-pub const FLASH: HWND = 2;
+pub const HUD: Window = 1;
+pub const FLASH: Window = 2;
 
 static APP: OnceLock<AppHandle> = OnceLock::new();
 pub fn init(app: AppHandle) {
     let _ = APP.set(app);
 }
 
-fn overlay(handle: HWND) -> Option<tauri::WebviewWindow> {
+fn overlay(handle: Window) -> Option<tauri::WebviewWindow> {
     APP.get()?
         .get_webview_window(if handle == HUD { "hud" } else { "flash" })
 }
@@ -50,16 +50,16 @@ pub fn message_box(text: &str, question: bool) -> bool {
 fn front() -> Option<active_win_pos_rs::ActiveWindow> {
     active_win_pos_rs::get_active_window().ok()
 }
-pub fn foreground() -> HWND {
+pub fn foreground() -> Window {
     front().map_or(0, |w| w.process_id as isize)
 }
-pub fn is_own(hwnd: HWND) -> bool {
+pub fn is_own(hwnd: Window) -> bool {
     hwnd == std::process::id() as isize
 }
-pub fn is_window(hwnd: HWND) -> bool {
+pub fn is_window(hwnd: Window) -> bool {
     hwnd > 2
 }
-pub fn is_shell(_: HWND) -> bool {
+pub fn is_shell(_: Window) -> bool {
     false
 }
 
@@ -70,14 +70,14 @@ pub struct Target {
     pub icon: String,
 }
 
-pub fn target(hwnd: HWND) -> Option<Target> {
+pub fn target(hwnd: Window) -> Option<Target> {
     let window = front().filter(|w| w.process_id as isize == hwnd)?;
     Some(Target {
         name: window.app_name,
         icon: String::new(),
     })
 }
-pub fn exe_name(hwnd: HWND) -> String {
+pub fn exe_name(hwnd: Window) -> String {
     program_path(hwnd)
         .and_then(|p| {
             std::path::Path::new(&p)
@@ -86,12 +86,12 @@ pub fn exe_name(hwnd: HWND) -> String {
         })
         .unwrap_or_default()
 }
-pub fn window_title(hwnd: HWND) -> String {
+pub fn window_title(hwnd: Window) -> String {
     front()
         .filter(|w| w.process_id as isize == hwnd)
         .map_or_else(String::new, |w| w.title)
 }
-pub fn program_path(hwnd: HWND) -> Option<String> {
+pub fn program_path(hwnd: Window) -> Option<String> {
     front()
         .filter(|w| w.process_id as isize == hwnd)
         .map(|w| w.process_path.to_string_lossy().into_owned())
@@ -153,7 +153,7 @@ fn chord(letter: char) -> bool {
     done
 }
 
-pub fn undo(hwnd: HWND) -> bool {
+pub fn undo(hwnd: Window) -> bool {
     foreground() == hwnd && chord('z')
 }
 
@@ -168,7 +168,7 @@ pub fn set_clipboard_private(text: &str) -> bool {
 }
 pub fn finish_restore() {}
 
-pub fn insert(text: &str, hwnd: HWND, paste: bool, restore: bool) -> Outcome {
+pub fn insert(text: &str, hwnd: Window, paste: bool, restore: bool) -> Outcome {
     if foreground() != hwnd {
         return Outcome::FocusLost;
     }
@@ -214,10 +214,10 @@ pub fn insert(text: &str, hwnd: HWND, paste: bool, restore: bool) -> Outcome {
     Outcome::Inserted
 }
 
-pub fn prepare_overlay(_: HWND) {}
+pub fn prepare_overlay(_: Window) {}
 
 /// Shows the overlay centered at the top or bottom of the main screen.
-pub fn show_overlay(handle: HWND, _near: HWND, size: (i32, i32), bottom: bool) {
+pub fn show_overlay(handle: Window, _near: Window, size: (i32, i32), bottom: bool) {
     let Some(window) = overlay(handle) else {
         return;
     };
@@ -234,14 +234,14 @@ pub fn show_overlay(handle: HWND, _near: HWND, size: (i32, i32), bottom: bool) {
     }
     let _ = window.show();
 }
-pub fn show_overlay_at(handle: HWND, x: i32, y: i32, w: i32, h: i32) {
+pub fn show_overlay_at(handle: Window, x: i32, y: i32, w: i32, h: i32) {
     if let Some(window) = overlay(handle) {
         let _ = window.set_position(PhysicalPosition::new(x, y));
         let _ = window.set_size(PhysicalSize::new(w as u32, h as u32));
         let _ = window.show();
     }
 }
-pub fn hide_overlay(handle: HWND) {
+pub fn hide_overlay(handle: Window) {
     if let Some(window) = overlay(handle) {
         let _ = window.hide();
     }

@@ -49,8 +49,10 @@ fn output(bytes: &'static [u8]) {
     use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
     std::thread::spawn(move || {
         let samples: Vec<f32> = bytes[44..]
-            .chunks_exact(2)
-            .map(|b| i16::from_le_bytes([b[0], b[1]]) as f32 / i16::MAX as f32)
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|b| i16::from_le_bytes(*b) as f32 / i16::MAX as f32)
             .collect();
         let Some(device) = cpal::default_host().default_output_device() else {
             return;
