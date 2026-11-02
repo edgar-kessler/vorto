@@ -21,9 +21,12 @@ pub enum Command {
     Transcribe {
         audio: PathBuf,
         language: String,
-        /// Words to spell this way; Whisper uses them, Parakeet ignores them.
+        /// Words to spell this way, as a hint for Whisper.
         #[serde(default, skip_serializing_if = "String::is_empty")]
         prompt: String,
+        /// The user's terms; Parakeet checks them against the audio.
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        terms: Vec<Term>,
     },
     /// A quick look at the recording so far; failures never become errors.
     Preview {
@@ -31,12 +34,16 @@ pub enum Command {
         language: String,
         #[serde(default, skip_serializing_if = "String::is_empty")]
         prompt: String,
+        /// Sent for commits, which are final, and left out of previews, which must be quick.
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        terms: Vec<Term>,
     },
     Download {
         root: PathBuf,
         model: String,
     },
 }
+pub use crate::vocab::Term;
 fn default_gpu() -> bool {
     true
 }

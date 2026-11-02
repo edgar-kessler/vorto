@@ -225,7 +225,7 @@
     width: 460px;
     max-width: 100%;
     max-height: min(680px, calc(100vh - 48px));
-    border-radius: 22px;
+    border-radius: 8px;
     background: var(--surface);
     box-shadow:
       var(--shadow-pop),
@@ -247,7 +247,7 @@
   }
   .modal-head h2 {
     font-size: 18px;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.04px;
   }
   .modal-head p {
     margin-top: 3px;
@@ -282,7 +282,7 @@
     height: 44px;
     margin: 0 24px 6px;
     padding: 0 8px 0 14px;
-    border-radius: 12px;
+    border-radius: 6px;
     background: var(--group);
     border: 1px solid transparent;
     color: var(--faint);
@@ -315,7 +315,7 @@
   .group-title {
     margin: 14px 8px 8px;
     font-size: 12px;
-    font-weight: 560;
+    font-weight: 530;
     color: var(--muted);
   }
   .grid {
@@ -329,7 +329,7 @@
     align-items: center;
     gap: 12px;
     padding: 10px;
-    border-radius: 14px;
+    border-radius: 6px;
     border: 1px solid var(--border);
     text-align: left;
     transition:
@@ -352,7 +352,7 @@
     flex-direction: column;
   }
   .tile-text strong {
-    font-weight: 560;
+    font-weight: 530;
     font-size: 14px;
   }
   .tile-text span {
@@ -382,7 +382,7 @@
     align-items: center;
     gap: 4px;
     color: var(--brand);
-    font-weight: 540;
+    font-weight: 530;
   }
   .inline-link:hover {
     text-decoration: underline;
@@ -391,8 +391,8 @@
     display: flex;
     flex-direction: column;
     gap: 7px;
-    font-size: 12.5px;
-    font-weight: 540;
+    font-size: 12px;
+    font-weight: 530;
     color: var(--muted);
   }
   .label-row {
@@ -409,13 +409,13 @@
     flex-direction: column;
     gap: 8px;
     padding: 12px 14px;
-    border-radius: 12px;
+    border-radius: 6px;
     background: var(--group);
   }
   .facts p {
     display: flex;
     gap: 9px;
-    font-size: 12.5px;
+    font-size: 12px;
     line-height: 1.5;
     color: var(--muted);
   }
@@ -427,7 +427,7 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    font-size: 13.5px;
+    font-size: 13px;
     color: var(--muted);
     padding: 10px 0;
   }
@@ -447,7 +447,7 @@
   code {
     font-size: 12px;
     padding: 1px 5px;
-    border-radius: 5px;
+    border-radius: 4px;
     background: var(--group);
   }
 </style>

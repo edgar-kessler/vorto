@@ -79,21 +79,24 @@ fn serve() -> Result<()> {
                     audio,
                     language,
                     prompt,
+                    terms,
                 } => {
                     let context = model.as_mut().context("The voice model isn't ready.")?;
-                    let text = transcribe_file(context.as_mut(), &audio, language, prompt)?.text;
+                    let text =
+                        transcribe_file(context.as_mut(), &audio, language, prompt, terms)?.text;
                     emit(Event::Result { text });
                 }
                 Command::Preview {
                     audio,
                     language,
                     prompt,
+                    terms,
                 } => {
                     let outcome = model
                         .as_mut()
                         .context("The voice model isn't ready.")
                         .and_then(|context| {
-                            transcribe_file(context.as_mut(), &audio, language, prompt)
+                            transcribe_file(context.as_mut(), &audio, language, prompt, terms)
                         });
                     // Reported in the event rather than as an error, which would end the dictation.
                     emit(match outcome {
@@ -155,6 +158,7 @@ fn warm_up(provider: &mut dyn TranscriptionProvider) -> Result<()> {
                 samples: vec![0.0; 16_000],
                 language: Some("en".into()),
                 prompt: String::new(),
+                terms: Vec::new(),
                 allow_remote: false,
             },
             Cancellation::default(),
@@ -167,6 +171,7 @@ fn transcribe_file(
     audio: &Path,
     language: String,
     prompt: String,
+    terms: Vec<vorto::vocab::Term>,
 ) -> Result<Transcript> {
     let mut reader = hound::WavReader::open(audio)?;
     let spec = reader.spec();
@@ -189,6 +194,7 @@ fn transcribe_file(
                 Some(language)
             },
             prompt,
+            terms,
             allow_remote: false,
         },
         Cancellation::default(),

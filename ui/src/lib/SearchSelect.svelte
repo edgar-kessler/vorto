@@ -135,10 +135,10 @@
     width: 100%;
     height: 34px;
     padding: 0 10px 0 12px;
-    border-radius: 10px;
+    border-radius: 6px;
     background: var(--surface);
     border: 1px solid var(--border-strong);
-    font-size: 13.5px;
+    font-size: 13px;
     text-align: left;
     transition: border-color var(--fast) ease;
   }
@@ -176,7 +176,7 @@
     left: 0;
     min-width: 100%;
     width: max(100%, 280px);
-    border-radius: 14px;
+    border-radius: 6px;
     background: var(--surface);
     border: 1px solid var(--border);
     box-shadow: var(--shadow-pop);
@@ -210,7 +210,7 @@
     border: 0;
     outline: 0;
     background: none;
-    font-size: 13.5px;
+    font-size: 13px;
     color: var(--text);
     user-select: text;
   }
@@ -229,8 +229,8 @@
     width: 100%;
     min-height: 34px;
     padding: 6px 9px;
-    border-radius: 9px;
-    font-size: 13.5px;
+    border-radius: 6px;
+    font-size: 13px;
     text-align: left;
   }
   .option.active {

@@ -73,6 +73,17 @@ It's a Cargo workspace with three crates, plus the web UI and the landing page.
 
 Between recognition and insertion, the dictionary's replacements are applied (`src/vocab.rs`), and AI editing may rewrite the text.
 
+## How Vorto learns
+
+`src/vocab.rs` holds everything that doesn't need a model, so it's covered by plain unit tests.
+
+- **Corrections.** After an insertion a worker looks at the focused field a few times over about two minutes (`watch_for_corrections`, `app/src/caret.rs`). Only while the window that was written into is in front, never in password fields, and nothing is logged or kept but what comes out of the next step. `locate` finds the dictation in the field by word alignment. A change that stays the same between two looks counts as finished. The pencil in History gets to the same place.
+- **What counts.** `corrections` keeps changes that look like a misheard word: one to three words, that sound alike (Kölner Phonetik) or are spelled alike, and not two everyday words. Rewrites, inserted or removed words, inflections and punctuation teach nothing. What's left goes into `learned` in `settings.json`, shown and removable on the Dictionary page.
+- **Using it with Parakeet.** Parakeet takes no hints, so the engine checks after decoding (`check_terms` in `engine/src/parakeet.rs`). `candidates` finds spans of up to three words that sound like a term or were corrected to it before. The same audio frames, from the same decoder state, are scored as the written words and as the term. The term goes in when `score(term) + boost × pieces >= score(heard)`, with a higher boost for mistakes the user has corrected. So the audio decides: a learned "Foto → Vorto" changes "Foto" where "Vorto" was said, and leaves it where "Foto" was. Previews skip the check to keep up with the voice.
+- **Using it with Whisper.** The learned words come first in the initial prompt, and spellings that aren't everyday words are replaced after recognition.
+
+Hex (`anomalyco/hex`) showed this rescoring approach and its boost range in `docs/research/vocabulary-boost-results.md`; Vorto's version is simpler, a best-path score over the token probabilities.
+
 ## AI editing
 
 `app/src/ai.rs` sends the text of a dictation, never audio, to a language model and inserts the reply.
@@ -120,7 +131,7 @@ Commands (`op`) and events (`event`) from `src/protocol.rs`:
 | `preview` | `audio`, `language` | `preview` with `text`, `ok` and an optional detected `language`. A failed preview is reported with `ok: false`, never as an error, so it can't end a dictation. |
 | `download` | `root`, `model` | `progress` with `detail` and `fraction`, then `downloaded` or `error` |
 
-`transcribe` and `preview` also take an optional `prompt`: the dictionary's words, which Whisper uses as its initial prompt and Parakeet ignores.
+`transcribe` and `preview` also take an optional `prompt`, the dictionary's words for Whisper's initial prompt, and optional `terms`, each a word and how it was misheard before, which Parakeet checks against the audio.
 
 ```json
 {"op":"transcribe","audio":"C:\\Users\\you\\AppData\\Local\\Temp\\vorto-A1b2C3.wav","language":"auto"}
@@ -132,6 +143,9 @@ Audio must be 16 kHz mono and at most two minutes long.
 ### Recognition
 
 - **Parakeet TDT 0.6B v3** (`engine/src/parakeet.rs`) runs through ONNX Runtime on the processor, using the int8 ONNX export: a mel preprocessor (`nemo128.onnx`), the Conformer encoder, and a greedy TDT decoder. Parakeet detects the language itself. ONNX Runtime is linked statically through the `ort` crate.
+- **Parakeet Ultra** is Moondream's further training of v3 (`moondream/parakeet-ultra`, CC-BY-4.0), run the same way, and the default for new installs.
+- **Parakeet English** is NVIDIA's Parakeet TDT 0.6B v2 (CC-BY-4.0), run the same way.
+- **Parakeet Deutsch** is primeLine's German fine-tune of v3 (`primeline/parakeet-primeline`, CC-BY-4.0), run the same way. Its parts come from two exports, each pinned and checked like every other file: the encoder from `flozen1981/parakeet-primeline-onnx`, the joined decoder from `OpenVoiceOS/primeline-parakeet-onnx`, whose own encoder only gives blanks.
 - **Whisper** (`engine/src/whisper.rs`) runs through whisper-rs and whisper.cpp. With the `vulkan` feature, and when the PC has a Vulkan loader, it runs on the graphics card (NVIDIA, AMD or Intel). If loading or the warm-up pass fails on the graphics card, the engine falls back to the processor.
 - Every load ends with a short warm-up pass on silence, so the first dictation doesn't pay for kernel compilation and allocations.
 - Inference uses one thread per performance core, at most 8. PCs with four cores or fewer keep one core free for recording and the desktop. The engine also opts out of Windows 11's power throttling for background processes, since the user is waiting for the result.
@@ -177,7 +191,7 @@ The engine turns off Windows error dialogs and writes a line to `engine.log` whe
 
 | Window | Content | Notes |
 |---|---|---|
-| `main` | `index.html` | Dictate, History, Voice models, Settings, and onboarding. No system title bar. |
+| `main` | `index.html` | Dictate, History, Stats, Dictionary, AI editing, Voice models, Settings, and onboarding. No system title bar. |
 | `hud` | `index.html#hud` | The recording pill: 620 × 220, transparent, always on top, never takes focus, not in the taskbar |
 | `flash` | `index.html#flash` | The glow over inserted text, placed and sized over it, with the same window styles as the pill |
 
@@ -201,7 +215,7 @@ Everything lives in `%LOCALAPPDATA%\app.vorto.desktop`, named after the app iden
 
 | Path | Content |
 |---|---|
-| `settings.json` | Settings, including the dictionary and AI editing styles. API keys are in Windows Credential Manager. |
+| `settings.json` | Settings, including the dictionary, what Vorto learned from corrections, and AI editing styles. API keys are in Windows Credential Manager. |
 | `stats.json` | Totals per day and per app for Stats: dictations, words and seconds. Never text. |
 | `apps.json` | The programs dictated into, with their paths, for picking them in AI editing styles. Never text. |
 | `history.json` | The last 100 dictations, if history is on, with the words as spoken when AI editing changed them |

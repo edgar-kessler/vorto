@@ -34,6 +34,8 @@ pub struct AudioRequest {
     pub language: Option<String>,
     /// Names and terms the user spells a certain way, as a hint; empty for none.
     pub prompt: String,
+    /// The user's terms, for providers that can check them against the audio.
+    pub terms: Vec<crate::vocab::Term>,
     /// Remote providers must reject requests without explicit transfer consent.
     pub allow_remote: bool,
 }
@@ -69,6 +71,7 @@ mod tests {
             samples: vec![],
             language: None,
             prompt: String::new(),
+            terms: Vec::new(),
             allow_remote: false,
         };
         assert!(check_transfer(&p, &r).is_err());

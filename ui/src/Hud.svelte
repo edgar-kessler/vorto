@@ -55,13 +55,13 @@
   <div class="pill {shown.mode}" class:visible class:has-live={live} role="status">
     <div class="head">
       {#if shown.mode === "listening"}
-        <span class="mark"><Mark size={24} mood="listening" level={voice} onDark /></span>
+        <span class="mark"><Mark size={18} mood="listening" level={voice} onDark /></span>
         <span class="status">Listening</span>
       {:else if shown.mode === "writing"}
-        <span class="mark"><Mark size={24} mood="thinking" onDark /></span>
+        <span class="mark"><Mark size={18} mood="thinking" onDark /></span>
         <span class="status shimmer">Writing</span>
       {:else if shown.mode === "polishing"}
-        <span class="mark"><Mark size={24} mood="thinking" onDark /></span>
+        <span class="mark"><Mark size={18} mood="thinking" onDark /></span>
         <span class="status shimmer">Polishing</span>
         {#if shown.text}
           <span class="divider"></span>
@@ -69,13 +69,13 @@
         {/if}
         <span class="time">Esc skips</span>
       {:else if shown.mode === "done"}
-        <span class="badge ok"><Icon name="check" size={12} stroke={3} /></span>
+        <span class="badge ok"><Icon name="check" size={11} stroke={3} /></span>
         <span class="status">{shown.text}</span>
       {:else if shown.mode === "notice"}
-        <span class="badge info"><Icon name="info" size={12} stroke={3} /></span>
+        <span class="badge info"><Icon name="info" size={11} stroke={3} /></span>
         <span class="status">{shown.text}</span>
       {:else if shown.mode === "error"}
-        <span class="badge bad"><Icon name="x" size={12} stroke={3} /></span>
+        <span class="badge bad"><Icon name="x" size={11} stroke={3} /></span>
         <span class="status">{shown.text}</span>
       {/if}
 
@@ -115,26 +115,26 @@
     display: flex;
     flex-direction: column;
     max-width: 560px;
-    padding: 0 18px 0 12px;
-    border-radius: 24px;
-    background: rgba(17, 17, 19, 0.96);
-    color: #fff;
+    padding: 0 14px 0 10px;
+    border-radius: 8px;
+    background: linear-gradient(rgba(255, 255, 255, 0.06), transparent), #1c1c1c;
+    color: #fafafa;
     box-shadow:
-      0 10px 26px rgba(0, 0, 0, 0.28),
-      inset 0 0 0 1px rgba(255, 255, 255, 0.08);
-    font-size: 13.5px;
+      0 -0.5px 0 rgba(255, 255, 255, 0.06),
+      0 0 0 0.5px rgba(255, 255, 255, 0.16),
+      0 8px 16px rgba(0, 0, 0, 0.3);
+    font-size: 13px;
     opacity: 0;
-    transform: translateY(-10px) scale(0.55);
+    transform: translateY(-6px) scale(0.96);
     transform-origin: top center;
     interpolate-size: allow-keywords;
     transition:
-      opacity 200ms ease,
-      transform 460ms cubic-bezier(0.34, 1.4, 0.64, 1),
-      width 420ms cubic-bezier(0.22, 1, 0.36, 1),
-      border-radius 300ms ease;
+      opacity 120ms ease,
+      transform 180ms cubic-bezier(0.22, 1, 0.36, 1),
+      width 220ms cubic-bezier(0.22, 1, 0.36, 1);
   }
   .bottom .pill {
-    transform: translateY(10px) scale(0.55);
+    transform: translateY(6px) scale(0.96);
     transform-origin: bottom center;
   }
   .pill.visible {
@@ -146,14 +146,13 @@
   }
   .pill.has-live {
     width: 540px;
-    padding-left: 16px;
-    border-radius: 22px;
+    padding-left: 14px;
   }
   .head {
     display: flex;
     align-items: center;
     gap: 10px;
-    height: 44px;
+    height: 36px;
     white-space: nowrap;
   }
   .live {
@@ -162,13 +161,13 @@
     flex-direction: column;
     justify-content: flex-end;
     max-height: calc(4 * 1.5em);
-    margin: -2px 0 14px;
+    margin: 0 0 10px;
     overflow: hidden;
-    font-size: 15px;
+    font-size: 14px;
     line-height: 1.5;
     color: rgba(255, 255, 255, 0.92);
     white-space: normal;
-    animation: unfold 420ms cubic-bezier(0.22, 1, 0.36, 1);
+    animation: unfold 180ms cubic-bezier(0.22, 1, 0.36, 1);
   }
   @keyframes unfold {
     from {
@@ -183,7 +182,7 @@
   /* New words glide in; corrected words change in place without flicker. */
   .word {
     display: inline;
-    animation: word-in 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation: word-in 160ms ease-out both;
   }
   @keyframes word-in {
     from {
@@ -198,13 +197,12 @@
   .mark {
     display: grid;
     place-items: center;
-    width: 26px;
-    height: 26px;
+    width: 20px;
+    height: 20px;
     flex-shrink: 0;
   }
   .status {
-    font-weight: 560;
-    letter-spacing: -0.005em;
+    font-weight: 530;
     overflow: hidden;
     text-overflow: ellipsis;
   }
@@ -236,7 +234,8 @@
     text-align: right;
     font-variant-numeric: tabular-nums;
     color: rgba(255, 255, 255, 0.6);
-    font-size: 12.5px;
+    font-family: var(--mono);
+    font-size: 12px;
   }
   .shimmer {
     background: linear-gradient(90deg, #8f8f98 0%, #fff 40%, #8f8f98 80%);
@@ -257,9 +256,9 @@
   .badge {
     display: grid;
     place-items: center;
-    width: 20px;
-    height: 20px;
-    border-radius: 999px;
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
     flex-shrink: 0;
   }
   .badge.ok {

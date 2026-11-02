@@ -66,10 +66,10 @@
     width: 100%;
     height: 34px;
     padding: 0 10px 0 12px;
-    border-radius: 10px;
+    border-radius: 6px;
     background: var(--surface);
     border: 1px solid var(--border-strong);
-    font-size: 13.5px;
+    font-size: 13px;
     transition:
       border-color 140ms ease,
       box-shadow 140ms ease;
@@ -105,7 +105,7 @@
     right: 0;
     min-width: 100%;
     padding: 5px;
-    border-radius: 12px;
+    border-radius: 6px;
     background: var(--surface);
     border: 1px solid var(--border);
     box-shadow: var(--shadow-pop);
@@ -122,15 +122,15 @@
     width: 100%;
     min-height: 32px;
     padding: 6px 10px;
-    border-radius: 8px;
+    border-radius: 4px;
     text-align: left;
-    font-size: 13.5px;
+    font-size: 13px;
     white-space: nowrap;
   }
   .item:hover {
     background: var(--hover);
   }
   .item.selected {
-    font-weight: 550;
+    font-weight: 530;
   }
 </style>

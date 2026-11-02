@@ -18,10 +18,12 @@
     <div class="avatar"><BrandLogo family={model.family} size={28} /></div>
     <div class="title">
       <h3>{model.name}</h3>
-      <span class="sub">by {model.family === "parakeet" ? "NVIDIA" : "OpenAI"}</span>
+      <span class="sub">by {model.id === "parakeet-de" ? "primeLine, on NVIDIA Parakeet" : model.id === "parakeet-ultra" ? "Moondream, on NVIDIA Parakeet" : model.family === "parakeet" ? "NVIDIA" : "OpenAI"}</span>
     </div>
     {#if inUse}
       <span class="badge live"><span class="dot"></span> In use</span>
+    {:else if model.id === "parakeet-de"}
+      <span class="badge">Best for German</span>
     {:else if model.recommended}
       <span class="badge">Recommended</span>
     {/if}
@@ -72,7 +74,7 @@
     gap: 14px;
     width: 100%;
     padding: 20px;
-    border-radius: 22px;
+    border-radius: 8px;
     background: var(--surface);
     border: 1px solid var(--border);
     box-shadow: var(--shadow-card);
@@ -101,7 +103,7 @@
     place-items: center;
     width: 52px;
     height: 52px;
-    border-radius: 15px;
+    border-radius: 6px;
     flex-shrink: 0;
     background: var(--group);
     border: 1px solid var(--border);
@@ -115,12 +117,12 @@
   h3 {
     margin: 0;
     font-size: 17px;
-    font-weight: 620;
-    letter-spacing: -0.015em;
+    font-weight: 530;
+    letter-spacing: -0.04px;
   }
   .sub {
     margin-top: 1px;
-    font-size: 12.5px;
+    font-size: 12px;
     color: var(--muted);
   }
   .badge {
@@ -133,7 +135,7 @@
     background: var(--brand-soft);
     color: var(--brand);
     font-size: 11.5px;
-    font-weight: 620;
+    font-weight: 530;
     white-space: nowrap;
     align-self: flex-start;
   }
@@ -165,7 +167,7 @@
     padding: 0 11px 0 9px;
     border-radius: 999px;
     background: var(--group);
-    font-size: 12.5px;
+    font-size: 12px;
     font-weight: 500;
     color: var(--chip-text);
   }
@@ -227,7 +229,7 @@
     align-items: center;
     justify-content: space-between;
     margin-top: 8px;
-    font-size: 12.5px;
+    font-size: 12px;
     color: var(--muted);
     font-variant-numeric: tabular-nums;
   }

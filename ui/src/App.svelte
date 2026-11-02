@@ -1,6 +1,6 @@
 <script>
   import { onMount } from "svelte";
-  import { fly, scale } from "svelte/transition";
+  import { scale } from "svelte/transition";
   import { app, route, act, connect, windowControl, startsHidden, isTauri, applyTheme } from "./lib/api.js";
   import Icon from "./lib/Icon.svelte";
   import Mark from "./lib/Mark.svelte";
@@ -15,13 +15,13 @@
   import Stats from "./pages/Stats.svelte";
 
   const nav = [
-    { id: "home", label: "Dictate", icon: "dictate" },
-    { id: "history", label: "History", icon: "history" },
-    { id: "stats", label: "Stats", icon: "chart" },
-    { id: "dictionary", label: "Dictionary", icon: "book" },
-    { id: "ai", label: "AI editing", icon: "pen" },
-    { id: "models", label: "Voice models", icon: "models" },
-    { id: "settings", label: "Settings", icon: "settings" },
+    { id: "home", label: "Dictate" },
+    { id: "history", label: "History" },
+    { id: "stats", label: "Stats" },
+    { id: "dictionary", label: "Dictionary" },
+    { id: "ai", label: "AI", name: "AI editing" },
+    { id: "models", label: "Models", name: "Voice models" },
+    { id: "settings", label: "Settings" },
   ];
 
   let ready = $state(false);
@@ -49,38 +49,26 @@
   // Dictation can't work. The Dictate page says why; elsewhere a dot points there.
   let attention = $derived(!!s && $route !== "home" && (s.phase === "error" || (!s.hookOk && $route !== "settings")));
 
-  // The collapsed sidebar hides the labels, so the icons get a tooltip.
-  const narrow = matchMedia("(max-width: 960px)");
-  let collapsed = $state(narrow.matches);
-  $effect(() => {
-    const update = () => (collapsed = narrow.matches);
-    narrow.addEventListener("change", update);
-    return () => narrow.removeEventListener("change", update);
-  });
 </script>
 
 <div class="shell" class:ready class:browser={!isTauri} inert={!!s && !s.settings.onboarded}>
-  <aside class="sidebar">
+  <header class="top" data-tauri-drag-region>
     <div class="brand" data-tauri-drag-region>
-      <Mark size={26} />
-      <span class="collapsible">Vorto</span>
+      <Mark size={18} />
+      <span>Vorto</span>
     </div>
     <nav>
-      <!-- One highlight that slides to the page you open. -->
-      <span class="indicator" aria-hidden="true" style="transform: translateY({Math.max(0, nav.findIndex((n) => n.id === $route)) * 40}px)"></span>
       {#each nav as item}
         <button
           class="nav-item"
           class:active={$route === item.id}
-          aria-label={item.id === "home" && attention ? "Dictate, needs attention" : item.label}
-          title={collapsed ? item.label : undefined}
+          aria-label={item.id === "home" && attention ? "Dictate, needs attention" : (item.name ?? item.label)}
           aria-current={$route === item.id ? "page" : undefined}
           onclick={() => route.set(item.id)}
         >
-          <Icon name={item.icon} size={17} />
-          <span class="collapsible">{item.label}</span>
+          {item.label}
           {#if item.id === "home" && attention}
-            <span class="badge" aria-hidden="true" in:scale={{ start: 0.4, duration: 260 }}></span>
+            <span class="badge" aria-hidden="true" in:scale={{ start: 0.4, duration: 160 }}></span>
           {/if}
         </button>
       {/each}
@@ -88,41 +76,34 @@
     <div class="grow" data-tauri-drag-region></div>
     {#if s?.update?.status === "ready"}
       <button
-        class="nav-item update"
+        class="btn secondary sm update"
         aria-label="Restart to update to version {s.update.version}"
-        title={collapsed ? "Restart to update" : undefined}
         onclick={() => act("installUpdate")}
-        in:scale={{ start: 0.9, duration: 260 }}
       >
-        <Icon name="download" size={17} />
-        <span class="collapsible">Restart to update</span>
+        <Icon name="download" size={14} /> Restart to update
       </button>
     {/if}
-  </aside>
-
-  <main>
-    <header class="titlebar" data-tauri-drag-region>
-      <div class="controls">
-        <button aria-label="Minimize" onclick={() => windowControl("minimize")}><Icon name="minus" size={16} /></button>
-        <button aria-label="Maximize" onclick={() => windowControl("maximize")}><Icon name="square" size={14} /></button>
-        <button class="close" aria-label="Close" onclick={() => windowControl("close")}><Icon name="x" size={16} /></button>
-      </div>
-    </header>
-    <div class="scroll" bind:this={scroller}>
-      {#if s}
-        {#key $route}
-          <div class="page" in:fly={{ y: 6, duration: 200 }}>
-            {#if $route === "home"}<Home />
-            {:else if $route === "models"}<Models />
-            {:else if $route === "history"}<History />
-            {:else if $route === "dictionary"}<Dictionary />
-            {:else if $route === "ai"}<Ai />
-            {:else if $route === "stats"}<Stats />
-            {:else}<Settings />{/if}
-          </div>
-        {/key}
-      {/if}
+    <div class="controls">
+      <button aria-label="Minimize" onclick={() => windowControl("minimize")}><Icon name="minus" size={15} /></button>
+      <button aria-label="Maximize" onclick={() => windowControl("maximize")}><Icon name="square" size={13} /></button>
+      <button class="close" aria-label="Close" onclick={() => windowControl("close")}><Icon name="x" size={15} /></button>
     </div>
+  </header>
+
+  <main class="scroll" bind:this={scroller}>
+    {#if s}
+      {#key $route}
+        <div class="page">
+          {#if $route === "home"}<Home />
+          {:else if $route === "models"}<Models />
+          {:else if $route === "history"}<History />
+          {:else if $route === "dictionary"}<Dictionary />
+          {:else if $route === "ai"}<Ai />
+          {:else if $route === "stats"}<Stats />
+          {:else}<Settings />{/if}
+        </div>
+      {/key}
+    {/if}
   </main>
 </div>
 {#if s && !s.settings.onboarded}
@@ -135,137 +116,83 @@
     position: relative;
     z-index: 1;
     display: flex;
+    flex-direction: column;
     height: 100%;
     opacity: 0;
-    transform: scale(0.992);
-    transition:
-      opacity 320ms ease,
-      transform 420ms var(--ease);
+    transition: opacity 120ms ease;
   }
   .shell.ready {
     opacity: 1;
-    transform: none;
   }
-  .shell.browser {
-    border: 1px solid var(--border);
-  }
-  .sidebar {
+  .top {
     display: flex;
-    flex-direction: column;
-    width: var(--sidebar-w);
+    align-items: center;
+    height: 44px;
     flex-shrink: 0;
-    padding: 10px 12px 12px;
-    background: var(--sidebar);
-    border-right: 1px solid var(--border);
-    transition:
-      width 260ms var(--ease),
-      padding 260ms var(--ease);
+    padding-left: 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
   }
   .brand {
     display: flex;
     align-items: center;
-    gap: 9px;
-    height: 44px;
-    padding: 0 8px;
-    margin-bottom: 14px;
-    font-size: 15px;
-    font-weight: 620;
-    letter-spacing: -0.015em;
+    gap: 8px;
+    margin-right: 24px;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
   }
   .brand :global(*) {
     pointer-events: none;
   }
   nav {
-    position: relative;
     display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-  .indicator {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 38px;
-    border-radius: 10px;
-    background: var(--nav-active);
-    transition: transform 280ms var(--ease);
-    pointer-events: none;
+    align-items: center;
+    gap: 4px;
   }
   .nav-item {
     position: relative;
     display: flex;
     align-items: center;
-    gap: 11px;
-    height: 38px;
-    padding: 0 11px;
-    border-radius: 10px;
+    gap: 6px;
+    height: 28px;
+    padding: 0 8px;
+    border-radius: 4px;
     color: var(--nav-text);
-    font-size: 14px;
-    font-weight: 450;
-    transition:
-      background var(--fast) ease,
-      color var(--fast) ease,
-      padding 260ms var(--ease);
-  }
-  .nav-item :global(svg) {
-    color: var(--muted);
-    transition: color var(--fast) ease;
+    font-size: 13px;
+    font-weight: 500;
   }
   .nav-item:hover {
-    background: var(--hover);
-  }
-  .nav-item.active,
-  .nav-item.active:hover {
-    background: none;
     color: var(--text);
-    font-weight: 560;
   }
-  .nav-item.active :global(svg) {
+  .nav-item.active {
+    background: var(--nav-active);
     color: var(--text);
   }
   .badge {
-    width: 7px;
-    height: 7px;
-    margin-left: auto;
+    width: 6px;
+    height: 6px;
     flex-shrink: 0;
     border-radius: 999px;
     background: var(--red);
   }
   .grow {
     flex: 1;
+    align-self: stretch;
   }
-  .nav-item.update,
-  .nav-item.update :global(svg) {
-    color: var(--brand);
-    font-weight: 560;
-  }
-  main {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-  }
-  .titlebar {
-    display: flex;
-    align-items: center;
-    height: 44px;
-    flex-shrink: 0;
+  .update {
+    margin-right: 8px;
   }
   .controls {
     display: flex;
     height: 100%;
-    margin-left: auto;
   }
   .controls button {
     display: grid;
     place-items: center;
-    width: 46px;
+    width: 44px;
     height: 100%;
     color: var(--titlebar-icon);
-    transition:
-      background 120ms ease,
-      color 120ms ease;
   }
   .controls button:hover {
     background: var(--hover);
@@ -277,39 +204,19 @@
   }
   .scroll {
     flex: 1;
+    min-height: 0;
     overflow-y: auto;
     /* The scrollbar coming and going between pages doesn't shift the content sideways. */
-    scrollbar-gutter: stable;
+    scrollbar-gutter: stable both-edges;
     overflow-x: hidden;
   }
+  /* The page hangs between two hairlines that run the height of the window. */
   .page {
-    max-width: 800px;
+    position: relative;
+    min-height: 100%;
+    max-width: 880px;
     margin: 0 auto;
-    padding: 12px 36px 56px;
-  }
-  @media (max-width: 960px) {
-    .sidebar {
-      padding-left: 10px;
-      padding-right: 10px;
-    }
-    .collapsible {
-      display: none;
-    }
-    .brand,
-    .nav-item {
-      justify-content: center;
-      padding-left: 0;
-      padding-right: 0;
-    }
-    .badge {
-      position: absolute;
-      top: 9px;
-      right: 15px;
-      margin: 0;
-    }
-    .page {
-      padding-left: 24px;
-      padding-right: 24px;
-    }
+    padding: 40px 48px 64px;
+    border-inline: 1px solid var(--grid-line);
   }
 </style>

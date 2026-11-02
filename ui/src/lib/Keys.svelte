@@ -24,6 +24,6 @@
     height: 30px;
     padding: 0 11px;
     font-size: 14px;
-    border-radius: 8px;
+    border-radius: 4px;
   }
 </style>

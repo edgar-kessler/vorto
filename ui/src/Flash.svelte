@@ -40,20 +40,20 @@
   }
   .line {
     position: absolute;
-    border-radius: 5px;
-    background: rgba(255, 98, 80, 0.16);
+    border-radius: 4px;
+    background: var(--brand-line);
     box-shadow:
-      0 0 0 1.5px rgba(255, 98, 80, 0.55),
-      0 0 16px 2px rgba(255, 98, 80, 0.35);
+      0 0 0 1.5px var(--brand-line),
+      0 0 16px 2px var(--brand-line);
     opacity: 0;
     animation: glow 1150ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
   }
   .line.caret {
     border-radius: 999px;
-    background: rgba(255, 98, 80, 0.9);
+    background: var(--brand-line);
     box-shadow:
-      0 0 10px 3px rgba(255, 98, 80, 0.55),
-      0 0 26px 8px rgba(255, 98, 80, 0.25);
+      0 0 10px 3px var(--brand-line),
+      0 0 26px 8px var(--brand-line);
   }
   @keyframes glow {
     0% {

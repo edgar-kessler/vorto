@@ -30,10 +30,10 @@ Vorto writes it down right where you were typing, and can polish it with AI on t
 ## Highlights
 
 - **Works in any app.** Mail, chats, documents, the browser: wherever you can type, Vorto pastes or types your words. A small pill shows them while you speak.
-- **Stays on your PC.** Recognition runs locally with Parakeet v3 or Whisper. No account, no uploads, no telemetry.
+- **Stays on your PC.** Recognition runs locally with Parakeet or Whisper. No account, no uploads, no telemetry.
 - **Quick, even for long dictations.** Finished sentences are recognized while you're still talking, so the text is in place a moment after you let go.
 - **AI editing, if you want it.** Presets turn what you said into a polite email in Outlook, a clear prompt in Claude or tidy notes, with a model on your PC or a provider you choose.
-- **Your words, your spelling.** A dictionary for names and terms, replacements, and layout by voice: "new line", "as bullet points".
+- **It learns your words.** Fix a misheard word once and Vorto remembers it. A dictionary for names and terms, replacements, and layout by voice: "new line", "as bullet points".
 - **See what it saves you.** Stats show the time saved compared with typing, and History keeps your last 100 dictations, grouped by app.
 
 <table>
@@ -64,7 +64,7 @@ Vorto writes it down right where you were typing, and can polish it with AI on t
     <td width="50%" valign="top">
       <picture>
         <source media="(prefers-color-scheme: dark)" srcset="docs/images/voice-models-dark.png">
-        <img src="docs/images/voice-models-light.png" alt="Voice models page with Parakeet v3 in use and three Whisper models, each with speed and accuracy.">
+        <img src="docs/images/voice-models-light.png" alt="Voice models page: a table with Parakeet v3 in use, Parakeet Deutsch and three Whisper models, each with speed, accuracy and memory.">
       </picture>
       <p align="center"><sub><b>Voice models</b></sub></p>
     </td>
@@ -113,7 +113,10 @@ Download one inside the app, once. After that, recognition runs on your PC.
 
 | Model | Languages | Download | Hardware |
 |---|---|---|---|
-| **Parakeet v3** by NVIDIA · recommended | 25 European languages | 670 MB | Any modern processor |
+| **Parakeet Ultra** by Moondream, on NVIDIA Parakeet · recommended | 25 European languages | 670 MB | Any modern processor |
+| **Parakeet Deutsch** by primeLine, on NVIDIA Parakeet · best for German | German | 672 MB | Any modern processor |
+| **Parakeet English** by NVIDIA · best for English | English | 661 MB | Any modern processor |
+| **Parakeet v3** by NVIDIA | 25 European languages | 670 MB | Any modern processor |
 | **Whisper Turbo** by OpenAI | 99 languages | 574 MB | Needs a graphics card |
 | **Whisper Small** by OpenAI | 99 languages | 488 MB | Graphics card recommended |
 | **Whisper Base** by OpenAI | 99 languages | 148 MB | Light on any processor |
@@ -132,7 +135,7 @@ Small local models are fast but make mistakes. Models from about 3 billion param
 
 ### Dictionary, Stats and History
 
-- **Dictionary:** names and terms Vorto should spell your way (Whisper listens for them, AI editing keeps them), with suggestions from your dictations. **Replacements** swap words in every dictation, and `\n` stands for a line break.
+- **Dictionary:** names and terms Vorto should spell your way (Parakeet checks them against what you said, Whisper listens for them, AI editing keeps them), with suggestions from your dictations. **Replacements** swap words in every dictation, and `\n` stands for a line break.
 - **Stats:** the time dictation saved you compared with typing at your speed, words, dictations, the last 30 days and speaking time by app. Only numbers, never text.
 - **History:** your last 100 dictations, grouped by app or by day, ready to copy again. **Copy as spoken** gives you the original words when AI editing changed them. Turn off **Save history** to keep nothing.
 
@@ -191,7 +194,7 @@ Long dictations don't wait for one big pass at the end: while you speak, finishe
 <summary><b>Which voice model should I pick?</b></summary>
 <br>
 
-Start with **Parakeet v3**. It's fast and accurate on any modern processor. If your language isn't one of its 25 European languages, use Whisper: **Turbo** with a graphics card, **Base** on a PC without one.
+Start with **Parakeet Ultra**, or **Parakeet Deutsch** if you mostly speak German. They're fast and accurate on any modern processor. If your language isn't one of Ultra's 25 European languages, use Whisper: **Turbo** with a graphics card, **Base** on a PC without one.
 
 </details>
 
