@@ -180,7 +180,11 @@ fn beside_me(name: &str) -> Result<PathBuf> {
 
 /// Hands over to the app itself. It runs once: a second start only passes on what it was asked.
 fn launch(args: &[&str]) -> Result<()> {
-    let app = beside_me(if cfg!(windows) { "vorto.exe" } else { "vorto-app" })?;
+    let app = beside_me(if cfg!(windows) {
+        "vorto.exe"
+    } else {
+        "vorto-app"
+    })?;
     Process::new(&app)
         .args(args)
         .spawn()
