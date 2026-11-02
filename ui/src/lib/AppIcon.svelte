@@ -3,11 +3,9 @@
   // The real program icon when Vorto has seen the app, otherwise a letter tile.
   let { name = "", size = 28, src = "" } = $props();
   let icon = $derived(src || $app?.appIcons?.[name]);
-  const palette = ["#ff8a65", "#4f9dff", "#34c38f", "#f5b73b", "#a78bfa", "#f06292", "#26c6da"];
-  let tint = $derived(palette[[...name].reduce((h, c) => h + c.charCodeAt(0), 0) % palette.length]);
 </script>
 
-<span class="app-icon" class:real={icon} style="--size:{size}px; --tint:{tint}" aria-hidden="true">
+<span class="app-icon" class:real={icon} style="--size:{size}px" aria-hidden="true">
   {#if icon}
     <img src={icon} alt="" />
   {:else if name}
@@ -47,8 +45,7 @@
     place-items: center;
     width: 100%;
     height: 100%;
-    background: var(--tint);
-    color: #fff;
+    color: var(--muted);
     font-size: calc(var(--size) * 0.46);
     font-weight: 530;
   }

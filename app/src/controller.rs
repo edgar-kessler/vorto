@@ -271,7 +271,7 @@ struct Snapshot<'a> {
     mic_test: bool,
     autostart: bool,
     /// Icons of the apps in History. Sorted, so an unchanged state serializes the same way.
-    app_icons: BTreeMap<&'a str, &'a str>,
+    app_icons: BTreeMap<&'a str, String>,
     update: &'a UpdateView,
     /// Providers with an API key in Credential Manager.
     api_keys: &'a BTreeMap<String, bool>,
@@ -2631,10 +2631,14 @@ impl Controller {
             mic_test: self.mic_test.is_some(),
             autostart: self.autostart,
             app_icons: self
-                .app_icons
+                .store
+                .apps
                 .iter()
-                .filter(|(name, _)| self.store.history.iter().any(|e| &e.app == *name))
-                .map(|(name, icon)| (name.as_str(), icon.as_str()))
+                .map(|a| (a.name.as_str(), native::icon_for(&a.path)))
+                .chain(self.app_icons.iter().map(|(n, i)| (n.as_str(), i.clone())))
+                .filter(|(name, icon)| {
+                    !icon.is_empty() && self.store.history.iter().any(|e| e.app == *name)
+                })
                 .collect(),
             update: &self.update,
             api_keys: &self.api_keys,

@@ -147,17 +147,15 @@
   }
   nav {
     display: flex;
-    align-items: center;
-    gap: 4px;
+    align-self: stretch;
+    gap: 16px;
   }
   .nav-item {
     position: relative;
     display: flex;
     align-items: center;
     gap: 6px;
-    height: 28px;
-    padding: 0 8px;
-    border-radius: 4px;
+    padding: 0 2px;
     color: var(--nav-text);
     font-size: 13px;
     font-weight: 500;
@@ -166,8 +164,8 @@
     color: var(--text);
   }
   .nav-item.active {
-    background: var(--nav-active);
     color: var(--text);
+    box-shadow: inset 0 -1.5px 0 var(--text);
   }
   .badge {
     width: 6px;
