@@ -1,3 +1,4 @@
+#[cfg(windows)]
 use std::os::windows::process::CommandExt;
 use std::{
     io::Write,
@@ -7,8 +8,10 @@ use std::{
 
 #[test]
 fn malformed_and_missing_model_requests_do_not_kill_worker() {
-    let mut child = Command::new(env!("CARGO_BIN_EXE_vorto-engine"))
-        .creation_flags(0x08000000)
+    let mut command = Command::new(env!("CARGO_BIN_EXE_vorto-engine"));
+    #[cfg(windows)]
+    command.creation_flags(0x08000000);
+    let mut child = command
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
