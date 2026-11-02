@@ -14,8 +14,8 @@ motion is short and only where something moves.
 Two wings that meet in a V along one straight seam, with a shared tip: a word taking off.
 
 - App icon: near-black tile with a soft gradient and a thin light edge. The left wing is bright silver and casts a slight shadow on the darker right wing, like a fold. No gap between the wings.
-- SVG source: `assets/logo.svg` (icon) and `ui/src/lib/Mark.svelte` (flat, animated, right wing at 58 %).
-- Listening: the wings open with the voice. Writing: a slow beat. Done: one short beat. Never moves while idle.
+- SVG source: `assets/logo.svg` (icon) and `ui/src/lib/Mark.svelte` (flat, right wing at 58 %).
+- The mark never moves. While listening, five small level bars show the voice.
 
 The recording indicator shows the mark only while the microphone is on or text is being written.
 Outcomes use a small square badge: green check (inserted), red cross (failed), grey info (neutral).

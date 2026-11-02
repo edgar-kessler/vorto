@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import { app, level, connect, normalizeLevel, clock } from "./lib/api.js";
   import Icon from "./lib/Icon.svelte";
+  import Level from "./lib/Level.svelte";
   import Mark from "./lib/Mark.svelte";
 
   let voice = $state(0);
@@ -25,7 +26,7 @@
   onMount(() => {
     connect();
     const unsub = level.subscribe((v) => {
-      // Rise quickly, fall gently, so the mark moves like a voice and not like noise.
+      // Rise quickly, fall gently, so the bars move like a voice and not like noise.
       const target = normalizeLevel(v);
       voice = target > voice ? target : voice * 0.82 + target * 0.18;
     });
@@ -55,13 +56,13 @@
   <div class="pill {shown.mode}" class:visible class:has-live={live} role="status">
     <div class="head">
       {#if shown.mode === "listening"}
-        <span class="mark"><Mark size={18} mood="listening" level={voice} onDark /></span>
+        <span class="mark"><Level level={voice} /></span>
         <span class="status">Listening</span>
       {:else if shown.mode === "writing"}
-        <span class="mark"><Mark size={18} mood="thinking" onDark /></span>
+        <span class="mark"><Mark size={16} onDark /></span>
         <span class="status shimmer">Writing</span>
       {:else if shown.mode === "polishing"}
-        <span class="mark"><Mark size={18} mood="thinking" onDark /></span>
+        <span class="mark"><Mark size={16} onDark /></span>
         <span class="status shimmer">Polishing</span>
         {#if shown.text}
           <span class="divider"></span>

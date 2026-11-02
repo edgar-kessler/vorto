@@ -133,17 +133,6 @@
   }
 
   let voice = $derived(normalizeLevel($level));
-  // A speaking rhythm for the welcome screen, so the mark is alive before there's a voice.
-  let demo = $state(0);
-  $effect(() => {
-    if (steps[step] !== "welcome") return;
-    let t = 0;
-    const timer = setInterval(() => {
-      t += 0.2;
-      demo = Math.max(0, Math.sin(t) * 0.4 + Math.sin(t * 2.3) * 0.3 + 0.2);
-    }, 60);
-    return () => clearInterval(timer);
-  });
   // A resting model wakes up when dictation starts.
   let ready = $derived(selected?.installed && (s.phase === "ready" || s.phase === "sleeping"));
   let microphones = $derived([{ value: "", label: "Windows default" }, ...s.microphones.map((m) => ({ value: m, label: m }))]);
@@ -174,7 +163,7 @@
     {#key step}
       <section class="step" in:fly={{ x: 22 * direction, duration: 300, delay: 90 }} out:fade={{ duration: 90 }}>
         {#if name === "welcome"}
-          <div class="mark rise" style="--d:0"><Mark size={84} mood="listening" level={demo} /></div>
+          <div class="mark rise" style="--d:0"><Mark size={84} /></div>
           <h1 class="big rise" style="--d:1">Say it.<br />Vorto writes it.</h1>
           <p class="lead rise" style="--d:2">In any app. It learns how you talk, and your voice never leaves this PC.</p>
         {:else if name === "model"}
@@ -209,7 +198,7 @@
             <button class="btn ghost sm rise" style="--d:3" onclick={() => (more = true)}>Other models</button>
           {/if}
         {:else if name === "microphone"}
-          <div class="mark rise" style="--d:0"><Mark size={84} mood="listening" level={voice} /></div>
+          <div class="mark rise" style="--d:0"><Mark size={84} /></div>
           <h1 class="rise" style="--d:1">Say something</h1>
           <div class="level rise" style="--d:2" aria-hidden="true"><i style="transform: scaleX({Math.max(0.02, voice)})"></i></div>
           <p class="lead rise" style="--d:2">The line moves when Vorto hears you.</p>
@@ -289,7 +278,7 @@
             </button>
           </div>
         {:else}
-          <div class="mark rise" style="--d:0"><Mark size={84} mood="happy" /></div>
+          <div class="mark rise" style="--d:0"><Mark size={84} /></div>
           <h1 class="big rise" style="--d:1">You're ready.</h1>
           <p class="lead rise" style="--d:2">{s.settings.toggle ? "Press" : "Hold"} <Keys keys={s.shortcut} /> in any app and speak. Fix a word once, and Vorto remembers it.</p>
           <p class="note rise" style="--d:3">Closing the window keeps Vorto ready in the tray.</p>
