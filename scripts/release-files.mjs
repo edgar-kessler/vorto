@@ -2,7 +2,7 @@
 // signature, a copy with a fixed name for "latest" download links, latest.json for the updater
 // and SHA-256 checksums. Run after `scripts\build.cmd --installer` and signing the installer.
 import { createHash } from "node:crypto";
-import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -30,6 +30,11 @@ copyFileSync(join(nsis, setup), join(dist, setup));
 copyFileSync(join(nsis, `${setup}.sig`), join(dist, `${setup}.sig`));
 copyFileSync(join(nsis, setup), join(dist, "Vorto-Setup.exe"));
 
+// The macOS and Linux packages, from their own runners.
+const packages = join(root, "packages");
+const extra = existsSync(packages) ? readdirSync(packages) : [];
+for (const file of extra) copyFileSync(join(packages, file), join(dist, file));
+
 const signature = readFileSync(join(nsis, `${setup}.sig`), "utf8").trim();
 // A signature from any other key would only be a warning at build time, and every installed
 // Vorto would refuse the update. Compare the minisign key ids.
@@ -49,5 +54,5 @@ const latest = {
 writeFileSync(join(dist, "latest.json"), JSON.stringify(latest, null, 2) + "\n");
 
 const sha = (file) => createHash("sha256").update(readFileSync(join(dist, file))).digest("hex");
-writeFileSync(join(dist, "SHA256SUMS.txt"), [setup, "Vorto-Setup.exe"].map((f) => `${sha(f)}  ${f}`).join("\n") + "\n");
+writeFileSync(join(dist, "SHA256SUMS.txt"), [setup, "Vorto-Setup.exe", ...extra].map((f) => `${sha(f)}  ${f}`).join("\n") + "\n");
 console.log(`Release files for ${tag} in ${dist}`);

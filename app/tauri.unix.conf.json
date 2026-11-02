@@ -1,0 +1,19 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "mainBinaryName": "vorto-app",
+  "bundle": {
+    "externalBin": ["binaries/vorto-engine", "binaries/vorto"],
+    "resources": {
+      "binaries/THIRD-PARTY-NOTICES.txt": "THIRD-PARTY-NOTICES.txt"
+    },
+    "macOS": {
+      "infoPlist": "Info.plist",
+      "signingIdentity": "-",
+      "minimumSystemVersion": "12.0"
+    },
+    "linux": {
+      "deb": { "depends": ["libasound2t64 | libasound2", "xdg-utils"] },
+      "rpm": { "depends": ["alsa-lib", "xdg-utils"] }
+    }
+  }
+}

@@ -170,12 +170,17 @@ fn run(args: &[&str]) -> Result<()> {
 }
 
 fn beside_me(name: &str) -> Result<PathBuf> {
-    Ok(std::env::current_exe()?.with_file_name(name))
+    let mut me = std::env::current_exe()?;
+    // install.sh links this program into ~/.local/bin on a Mac.
+    if !cfg!(windows) {
+        me = me.canonicalize()?;
+    }
+    Ok(me.with_file_name(name))
 }
 
 /// Hands over to the app itself. It runs once: a second start only passes on what it was asked.
 fn launch(args: &[&str]) -> Result<()> {
-    let app = beside_me(if cfg!(windows) { "vorto.exe" } else { "vorto" })?;
+    let app = beside_me(if cfg!(windows) { "vorto.exe" } else { "vorto-app" })?;
     Process::new(&app)
         .args(args)
         .spawn()
@@ -191,7 +196,7 @@ fn running() -> bool {
             .is_ok_and(|o| String::from_utf8_lossy(&o.stdout).contains("vorto.exe"))
     } else {
         Process::new("pgrep")
-            .args(["-x", "vorto"])
+            .args(["-x", "vorto-app"])
             .output()
             .is_ok_and(|o| o.status.success())
     }

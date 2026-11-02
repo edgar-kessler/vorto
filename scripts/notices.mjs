@@ -10,6 +10,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const PLATFORM = { win32: "x86_64-pc-windows-msvc", darwin: "aarch64-apple-darwin", linux: "x86_64-unknown-linux-gnu" }[process.platform];
 const output = process.argv[2];
 if (!output) throw new Error("Usage: node scripts/notices.mjs <output file>");
 
@@ -38,7 +39,7 @@ const add = (name, version, license, source, files, texts = []) =>
 const meta = JSON.parse(
   execFileSync(
     "cargo",
-    ["metadata", "--format-version", "1", "--locked", "--filter-platform", "x86_64-pc-windows-msvc"],
+    ["metadata", "--format-version", "1", "--locked", "--filter-platform", PLATFORM],
     { cwd: root, encoding: "utf8", maxBuffer: 1 << 30 },
   ),
 );
@@ -130,7 +131,7 @@ if (vulkanSdk) {
     files.length ? [] : [mit],
   );
 } else {
-  console.warn("VULKAN_SDK isn't set, so the notices don't cover the Vulkan headers in vorto-engine-gpu.exe.");
+  if (process.platform === "win32") console.warn("VULKAN_SDK isn't set, so the notices don't cover the Vulkan headers in vorto-engine-gpu.exe.");
 }
 
 // Web UI: runtime npm dependencies bundled into ui/dist.

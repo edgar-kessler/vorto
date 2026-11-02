@@ -46,7 +46,11 @@ pub fn check(app: &AppHandle, tx: Sender<Msg>, asked: bool) {
                 .check()
                 .await
                 .map(|u| u.map(|u| Box::new(u.restart_after_install(false))))
-                .map_err(|e| e.to_string()),
+                .or_else(|e| match e {
+                    // Updates on macOS and Linux come from their packages for now.
+                    tauri_plugin_updater::Error::TargetNotFound(_) => Ok(None),
+                    e => Err(e.to_string()),
+                }),
             Err(e) => Err(e.to_string()),
         };
         let _ = tx.send(Msg::Update(UpdateMsg::Checked { found, asked }));
