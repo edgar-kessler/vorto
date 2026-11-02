@@ -263,7 +263,7 @@ fn listen() {
     use core_foundation::runloop::{kCFRunLoopCommonModes, CFRunLoop};
     use core_graphics::event::{
         CGEventTap, CGEventTapLocation, CGEventTapOptions, CGEventTapPlacement, CGEventType,
-        EventField,
+        CallbackResult, EventField,
     };
     let tap = CGEventTap::new(
         CGEventTapLocation::HID,
@@ -288,14 +288,14 @@ fn listen() {
                     _ => {}
                 }
             }
-            None
+            CallbackResult::Keep
         },
     );
     let Ok(tap) = tap else {
         crate::log::write("the shortcut needs the Accessibility permission");
         return;
     };
-    let Ok(source) = tap.mach_port.create_runloop_source(0) else {
+    let Ok(source) = tap.mach_port().create_runloop_source(0) else {
         return;
     };
     let run_loop = CFRunLoop::get_current();

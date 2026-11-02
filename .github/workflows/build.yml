@@ -56,6 +56,9 @@ jobs:
       - name: Find libclang on macOS
         if: runner.os == 'macOS'
         run: echo "LIBCLANG_PATH=$(xcode-select -p)/Toolchains/XcodeDefault.xctoolchain/usr/lib" >> "$GITHUB_ENV"
+      - name: Find libclang on Linux
+        if: runner.os == 'Linux'
+        run: echo "LIBCLANG_PATH=$(dirname "$(find /usr/lib -name 'libclang*.so*' | head -n 1)")" >> "$GITHUB_ENV"
       - run: npm ci --prefix ui
       - run: npm --prefix ui run build
       - run: cargo clippy --locked --workspace --all-targets -- -D warnings

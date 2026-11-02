@@ -14,6 +14,10 @@ pub struct Recorder {
     buffer: Arc<Mutex<Buffer>>,
     rate: u32,
 }
+// On macOS cpal's stream holds a device-change callback that isn't marked Send. The recorder is
+// only ever used by the one thread that owns it, and the callback only runs on cpal's own queue.
+#[cfg(target_os = "macos")]
+unsafe impl Send for Recorder {}
 pub fn devices() -> Vec<String> {
     cpal::default_host()
         .input_devices()

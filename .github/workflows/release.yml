@@ -65,6 +65,9 @@ jobs:
       - name: Find libclang on macOS
         if: runner.os == 'macOS'
         run: echo "LIBCLANG_PATH=$(xcode-select -p)/Toolchains/XcodeDefault.xctoolchain/usr/lib" >> "$GITHUB_ENV"
+      - name: Find libclang on Linux
+        if: runner.os == 'Linux'
+        run: echo "LIBCLANG_PATH=$(dirname "$(find /usr/lib -name 'libclang*.so*' | head -n 1)")" >> "$GITHUB_ENV"
       - run: npm ci --prefix ui
       - run: sh scripts/build-unix.sh
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
