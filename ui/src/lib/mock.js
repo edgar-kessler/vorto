@@ -42,7 +42,7 @@ export function startMock({ app, level, route }) {
     target: { name: "Google Chrome", icon: "" },
     hud: { mode: hudMode ?? "hidden", text: params.get("text") ?? hudText[hudMode] ?? "", live: params.get("live") ?? "" },
     microphones: ["Microphone (SM950 Microphone)", "Headset (Arctis 7)"],
-    dataDir: String.raw`C:\Users\you\AppData\Local\app.vorto.desktop`, version: "1.0.2", gpuBuild: true,
+    dataDir: String.raw`C:\Users\you\AppData\Local\app.vorto.desktop`, version: "1.1.0", gpuBuild: true,
     micTest: false, autostart: false, appIcons: {},
     apiKeys: {}, providersLocal: [true], aiModels: {}, aiTest: { id: 0, status: "", text: "", millis: 0 },
     apps: [

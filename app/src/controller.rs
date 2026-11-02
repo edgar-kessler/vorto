@@ -571,6 +571,9 @@ pub struct Controller {
     /// Install as soon as the download finishes: the user asked for it.
     install_when_ready: bool,
     next_update_check: Instant,
+    /// When settings.json last changed, to notice what the CLI writes.
+    settings_changed: Option<std::time::SystemTime>,
+    settings_checked: Instant,
     /// A check is on its way. Checks in the background don't show "checking", so a result the
     /// user asked for stays on screen.
     update_checking: bool,
@@ -682,6 +685,8 @@ impl Controller {
             update_bytes: None,
             install_when_ready: false,
             next_update_check: Instant::now() + Duration::from_secs(20),
+            settings_changed: None,
+            settings_checked: Instant::now(),
             update_checking: false,
             target_exe: String::new(),
             target_title: String::new(),
@@ -713,6 +718,53 @@ impl Controller {
             }
         }
         controller
+    }
+
+    /// Started without the main window, which is then never on screen.
+    pub fn without_window(mut self, headless: bool) -> Self {
+        if headless {
+            self.main_visible = false;
+        }
+        self
+    }
+
+    /// Takes over what `vorto settings set` and friends wrote to settings.json.
+    fn pick_up_settings(&mut self) {
+        if self.settings_checked.elapsed() < Duration::from_secs(1) {
+            return;
+        }
+        self.settings_checked = Instant::now();
+        let path = self.store.root.join("settings.json");
+        let Ok(changed) = std::fs::metadata(&path).and_then(|m| m.modified()) else {
+            return;
+        };
+        let known = self.settings_changed.replace(changed);
+        if known.is_none() || known == Some(changed) {
+            return;
+        }
+        let Some(mut settings) = std::fs::read(&path)
+            .ok()
+            .and_then(|bytes| serde_json::from_slice::<Settings>(&bytes).ok())
+        else {
+            return;
+        };
+        settings.validate();
+        let same = |a: &Settings, b: &Settings| {
+            serde_json::to_value(a).ok() == serde_json::to_value(b).ok()
+        };
+        // Our own saves land here too, and change nothing.
+        if same(&settings, &self.store.settings) {
+            return;
+        }
+        crate::log::write("settings changed on disk");
+        let hotkey = settings.hotkey.clone();
+        self.act(Action::SaveSettings {
+            settings: Box::new(settings),
+        });
+        // Saving leaves the shortcut alone, because it normally changes through recording.
+        if hotkey != self.store.settings.hotkey && self.recorder.is_none() {
+            self.set_shortcut(hotkey);
+        }
     }
 
     pub fn run(mut self, rx: Receiver<Msg>) {
@@ -2252,6 +2304,7 @@ impl Controller {
     }
 
     fn tick(&mut self) {
+        self.pick_up_settings();
         for event in self.engine.poll() {
             match event {
                 Event::Ready => {

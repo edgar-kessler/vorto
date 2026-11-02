@@ -51,6 +51,9 @@ exit /b 0
 
 :installer
 node scripts\stage.mjs "%VORTO_TARGET%\release\vorto-engine.exe" "%VORTO_TARGET%\release\vorto-engine-gpu.exe" || exit /b 1
+rem The command line tool: Windows prefers vorto.com to vorto.exe when you type vorto.
+cargo build --release --locked -p vorto --bin vorto-cli --target-dir "%VORTO_TARGET%" || exit /b 1
+copy /y "%VORTO_TARGET%\release\vorto-cli.exe" app\binaries\vorto.com >nul || exit /b 1
 if exist target\release\bundle\nsis rmdir /s /q target\release\bundle\nsis
 rem The UI is already built; the release config adds the engines, the runtime and the notices.
 call ui\node_modules\.bin\tauri.cmd build --ci --config app\tauri.release.conf.json || exit /b 1

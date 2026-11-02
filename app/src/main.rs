@@ -186,6 +186,16 @@ fn started_hidden() -> bool {
     std::env::args().any(|a| a == "--hidden")
 }
 
+/// Asked for by `vorto start`, or by the `headless` setting: only the recording pill.
+fn asked_headless() -> bool {
+    std::env::args().any(|a| a == "--headless")
+}
+
+/// `vorto stop`. With nothing running, there's nothing to do.
+fn asked_to_quit() -> bool {
+    std::env::args().any(|a| a == "--quit")
+}
+
 /// Asked by the page once it's loaded. A page that stays hidden goes to sleep right away:
 /// WebView2 treats a page in a hidden window as visible.
 #[tauri::command]
@@ -273,8 +283,12 @@ fn main() {
     };
     let result = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, args, _| {
+            if args.iter().any(|a| a == "--quit") {
+                app.exit(0);
+                return;
+            }
             // Windows starting Vorto at sign-in while it already runs changes nothing.
-            if !args.iter().any(|a| a == "--hidden") {
+            if !args.iter().any(|a| a == "--hidden" || a == "--headless") {
                 show_main(app);
             }
         }))
@@ -331,6 +345,9 @@ fn setup(
     published: Arc<Mutex<controller::Published>>,
     hidden: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    if asked_to_quit() {
+        std::process::exit(0);
+    }
     let mut store = vorto::data::Store::open()?;
     log::init(&store.root);
     log::write(format!("Vorto {} starting", env!("CARGO_PKG_VERSION")));
@@ -355,6 +372,14 @@ fn setup(
         }
     });
 
+    let headless = asked_headless() || store.settings.headless;
+    if headless {
+        // Nothing asks for the introduction here, and the window's memory goes unused.
+        store.settings.onboarded = true;
+        if let Some(main) = app.get_webview_window("main") {
+            main.destroy()?;
+        }
+    }
     if let Some(main) = app.get_webview_window("main") {
         // Match the first painted frame to the theme so opening never flashes.
         let dark = match store.settings.theme.as_str() {
@@ -382,44 +407,46 @@ fn setup(
     let _ = flash.set_ignore_cursor_events(true);
     native::prepare_overlay(flash_hwnd);
 
-    let menu = tray_menu(
-        app.handle(),
-        &TrayView {
-            recent: Vec::new(),
-            has_latest: false,
-            ai: store.settings.ai.enabled,
-        },
-    )?;
-    let mut tray = TrayIconBuilder::with_id("vorto")
-        .tooltip("Vorto")
-        .menu(&menu)
-        .show_menu_on_left_click(false)
-        .on_menu_event(|app, event| match event.id.as_ref() {
-            "open" => show_main(app),
-            "quit" => app.exit(0),
-            id => {
-                if let Some(page) = id.strip_prefix("nav:") {
-                    let _ = app.emit_to("main", "navigate", page);
-                    show_main(app);
-                } else {
-                    tell_controller(app, controller::Msg::Tray(id.to_string()));
+    if !headless {
+        let menu = tray_menu(
+            app.handle(),
+            &TrayView {
+                recent: Vec::new(),
+                has_latest: false,
+                ai: store.settings.ai.enabled,
+            },
+        )?;
+        let mut tray = TrayIconBuilder::with_id("vorto")
+            .tooltip("Vorto")
+            .menu(&menu)
+            .show_menu_on_left_click(false)
+            .on_menu_event(|app, event| match event.id.as_ref() {
+                "open" => show_main(app),
+                "quit" => app.exit(0),
+                id => {
+                    if let Some(page) = id.strip_prefix("nav:") {
+                        let _ = app.emit_to("main", "navigate", page);
+                        show_main(app);
+                    } else {
+                        tell_controller(app, controller::Msg::Tray(id.to_string()));
+                    }
                 }
-            }
-        })
-        .on_tray_icon_event(|tray, event| {
-            if let TrayIconEvent::Click {
-                button: MouseButton::Left,
-                button_state: MouseButtonState::Up,
-                ..
-            } = event
-            {
-                show_main(tray.app_handle());
-            }
-        });
-    if let Some(icon) = app.default_window_icon().cloned() {
-        tray = tray.icon(icon);
+            })
+            .on_tray_icon_event(|tray, event| {
+                if let TrayIconEvent::Click {
+                    button: MouseButton::Left,
+                    button_state: MouseButtonState::Up,
+                    ..
+                } = event
+                {
+                    show_main(tray.app_handle());
+                }
+            });
+        if let Some(icon) = app.default_window_icon().cloned() {
+            tray = tray.icon(icon);
+        }
+        tray.build(app)?;
     }
-    tray.build(app)?;
 
     let controller = controller::Controller::new(
         app.handle().clone(),
@@ -429,7 +456,8 @@ fn setup(
         (hud_hwnd, hud_size),
         flash_hwnd,
         hidden,
-    );
+    )
+    .without_window(headless);
     std::thread::Builder::new()
         .name("vorto-controller".into())
         .spawn(move || controller.run(rx))?;

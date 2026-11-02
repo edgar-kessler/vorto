@@ -118,6 +118,11 @@ h1 { font-size: clamp(44px, 6.3vw, 82px); font-weight: 640; line-height: 0.98; l
 .action.main { color: #0d0d0d; background: #ffffff; box-shadow: none; }
 .action.main:hover { background: #e5e5e5; }
 
+.install { display: flex; align-items: center; gap: 12px; max-width: 100%; margin-top: 14px; padding: 0; border: 0; background: none; color: var(--faint); font: inherit; font-size: 12.5px; cursor: pointer; text-align: left; }
+.install code { overflow: hidden; font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; white-space: nowrap; text-overflow: ellipsis; }
+.install span { flex: none; color: var(--muted); font-weight: 560; }
+.install:hover, .install:hover span { color: var(--text); }
+
 /* The sheet: where the words land, folded at one corner like the mark. */
 .desk {
   --fold: calc(44px + var(--voice, 0) * 16px);
@@ -234,6 +239,10 @@ kbd.pill-key, .pill-time { font-family: inherit; flex: none; height: 28px; displ
         <div class="cta">
           <a class="action main" href="https://github.com/edgar-kessler/vorto/releases/latest/download/Vorto-Setup.exe"><svg width="15" height="15" aria-hidden="true"><use href="#win"/></svg>Download for Windows</a>
         </div>
+        <button class="install" id="install" type="button" aria-label="Copy the install command">
+          <code>irm https://edgar-kessler.github.io/vorto/install.ps1 | iex</code>
+          <span id="install-note">Copy</span>
+        </button>
       </div>
 
       <div class="desk" id="desk">
@@ -674,6 +683,14 @@ kbd.pill-key, .pill-time { font-family: inherit; flex: none; height: 28px; displ
     while (document.hidden) { await sleep(400); if (!alive()) return; }
     play();
   }
+
+  $("install").addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText($("install").querySelector("code").textContent);
+      $("install-note").textContent = "Copied";
+      setTimeout(() => ($("install-note").textContent = "Copy"), 1400);
+    } catch (e) {}
+  });
 
   const setSound = (on) => {
     soundOn = on;
