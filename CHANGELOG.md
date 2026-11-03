@@ -101,7 +101,9 @@ The first public release.
 - Signed automatic updates from GitHub Releases, which can be turned off.
 - A clear message on processors without AVX2, which aren't supported yet.
 
-[Unreleased]: https://github.com/edgar-kessler/vorto/compare/v1.0.2...HEAD
+[Unreleased]: https://github.com/edgar-kessler/vorto/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/edgar-kessler/vorto/compare/v1.1.0...v1.1.1
+[1.1.0]: https://github.com/edgar-kessler/vorto/compare/v1.0.2...v1.1.0
 [1.0.2]: https://github.com/edgar-kessler/vorto/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/edgar-kessler/vorto/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/edgar-kessler/vorto/releases/tag/v1.0.0
