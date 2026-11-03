@@ -7,6 +7,20 @@ and Vorto follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-11-03
+
+### Changed
+
+- Dictate shows more: your shortcut, voice model, language and microphone, today's numbers and your last dictations.
+- The navigation marks the current page with a thin line.
+- The V stays still. While you speak, five small bars in the pill show your voice.
+- Apps without an icon get a quiet grey letter instead of a colored tile.
+
+### Fixed
+
+- History showed the real icon only for apps used since Vorto started. Now it shows the icon of every app it knows.
+- The website's favicon no longer stays old in browsers that kept it.
+
 ## [1.1.0] - 2026-11-02
 
 ### Added
