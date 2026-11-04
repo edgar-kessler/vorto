@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "Vorto, local dictation for Windows."
+description = "Vorto, local dictation."
 
 [[bin]]
 name = "vorto"
@@ -24,7 +24,7 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 vorto = { path = ".." }
-tauri = { version = "2", features = ["tray-icon", "image-png"] }
+tauri = { version = "2", features = ["tray-icon", "image-png", "macos-private-api"] }
 tauri-plugin-single-instance = "2"
 tauri-plugin-updater = "2"
 anyhow = "1"
@@ -37,6 +37,8 @@ image = { version = "0.25", default-features = false, features = ["png"] }
 base64 = "0.22"
 native-tls = "0.2"
 ureq = { version = "2.12", default-features = false, features = ["native-tls", "json"] }
+
+[target.'cfg(windows)'.dependencies]
 webview2-com = "0.38"
 windows-core = "0.61"
 # UI Automation, to find where inserted text landed.
@@ -66,3 +68,19 @@ windows-sys = { version = "0.52", features = [
     "Win32_UI_Shell",
     "Win32_UI_WindowsAndMessaging",
 ] }
+
+[target.'cfg(not(windows))'.dependencies]
+active-win-pos-rs = "0.9"
+arboard = "3"
+auto-launch = "0.5"
+cpal = "0.16"
+enigo = "0.6"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+core-foundation = "0.10"
+core-graphics = "0.25"
+keyring = { version = "3", features = ["apple-native"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+keyring = { version = "3", features = ["sync-secret-service", "crypto-rust"] }
+rdev = "0.5"

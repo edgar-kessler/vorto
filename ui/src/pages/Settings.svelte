@@ -56,7 +56,7 @@
     [15, "15 minutes"],
     [30, "30 minutes"],
   ].map(([value, label]) => ({ value, label }));
-  let microphones = $derived([{ value: "", label: "Windows default" }, ...s.microphones.map((m) => ({ value: m, label: m }))]);
+  let microphones = $derived([{ value: "", label: "System default" }, ...s.microphones.map((m) => ({ value: m, label: m }))]);
   // More shortcuts stay folded until opened, or while one of them needs attention.
   let shortcutsOpen = $state(false);
   let setCount = $derived(extras.filter(([key]) => settings.shortcuts[key]?.length).length);
@@ -104,7 +104,7 @@
   <div class="row">
     <div class="label">
       <strong>Appearance</strong>
-      <span>{settings.theme === "system" ? "Follows Windows." : settings.theme === "light" ? "Always light." : "Always dark."}</span>
+      <span>{settings.theme === "system" ? "Follows your system." : settings.theme === "light" ? "Always light." : "Always dark."}</span>
     </div>
     <div class="control">
       <Segmented
@@ -121,10 +121,10 @@
   </div>
   <div class="row">
     <div class="label">
-      <strong>Start with Windows</strong>
+      <strong>Start at sign-in</strong>
       <span>Your shortcut works right after sign-in.</span>
     </div>
-    <div class="control"><Toggle label="Start with Windows" checked={s.autostart} onchange={(v) => act("setAutostart", { on: v })} /></div>
+    <div class="control"><Toggle label="Start at sign-in" checked={s.autostart} onchange={(v) => act("setAutostart", { on: v })} /></div>
   </div>
 </div>
 

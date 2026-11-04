@@ -60,7 +60,7 @@
     {:else if !inUse}
       <button class="btn secondary wide" disabled={busy} onclick={() => act("useModel", { id: model.id })}>Use this model</button>
     {:else}
-      <span class="ready"><Icon name="check" size={14} stroke={2.4} /> Ready on this PC</span>
+      <span class="ready"><Icon name="check" size={14} stroke={2.4} /> Ready on this device</span>
       <button class="btn ghost sm repair" disabled={busy} onclick={() => act("download", { id: model.id })}>Repair</button>
     {/if}
   </footer>

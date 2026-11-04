@@ -32,7 +32,7 @@
     const year = day.getFullYear() !== today.getFullYear() ? { year: "numeric" } : {};
     return day.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", ...year });
   };
-  // By app (newest app first) or by day. The choice is remembered on this PC.
+  // By app (newest app first) or by day. The choice is remembered on this device.
   const remembered = () => {
     try {
       return localStorage.getItem("vorto.history.by");

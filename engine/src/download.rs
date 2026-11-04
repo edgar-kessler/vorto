@@ -7,7 +7,6 @@ use sha2::{Digest, Sha256};
 use std::{
     fs,
     io::{BufWriter, Read, Seek, SeekFrom, Write},
-    os::windows::fs::OpenOptionsExt,
     path::Path,
     sync::Arc,
     time::{Duration, Instant},
@@ -22,15 +21,8 @@ pub fn download(root: &Path, id: &str) -> Result<()> {
     let total: u64 = entry.files.iter().map(|f| f.size).sum();
     let models = root.join("models");
     fs::create_dir_all(&models)?;
-    // One download of a model at a time, also across engines. Windows releases the lock, and
-    // deletes its file, when this process ends, however it ends.
-    let _lock = fs::OpenOptions::new()
-        .write(true)
-        .create(true)
-        .truncate(false)
-        .share_mode(0)
-        .custom_flags(windows_sys::Win32::Storage::FileSystem::FILE_FLAG_DELETE_ON_CLOSE)
-        .open(models.join(format!(".{id}.lock")))
+    // One download of a model at a time, also across engines.
+    let _lock = lock(&models.join(format!(".{id}.lock")))
         .map_err(|_| anyhow::anyhow!("{} is already downloading.", entry.name))?;
     let partial = models.join(format!(".{id}.partial"));
     // Files from another revision of the model can't be continued.
@@ -332,6 +324,36 @@ fn agent(name: &'static str) -> ureq::Agent {
     builder.build()
 }
 
+/// Windows releases the lock, and deletes its file, when this process ends, however it ends.
+#[cfg(windows)]
+fn lock(path: &Path) -> std::io::Result<fs::File> {
+    use std::os::windows::fs::OpenOptionsExt;
+    fs::OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .share_mode(0)
+        .custom_flags(windows_sys::Win32::Storage::FileSystem::FILE_FLAG_DELETE_ON_CLOSE)
+        .open(path)
+}
+/// Released when this process ends; the empty file stays behind.
+#[cfg(not(windows))]
+fn lock(path: &Path) -> std::io::Result<fs::File> {
+    let file = fs::OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .open(path)?;
+    file.try_lock()
+        .map_err(|_| std::io::ErrorKind::WouldBlock)?;
+    Ok(file)
+}
+
+#[cfg(not(windows))]
+fn ensure_space(_dir: &Path, _needed: u64, _name: &str) -> Result<()> {
+    Ok(())
+}
+#[cfg(windows)]
 fn ensure_space(dir: &Path, needed: u64, name: &str) -> Result<()> {
     use std::os::windows::ffi::OsStrExt;
     use windows_sys::Win32::Storage::FileSystem::GetDiskFreeSpaceExW;

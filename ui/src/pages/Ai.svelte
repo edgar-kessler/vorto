@@ -140,12 +140,12 @@
     <div class="empty-icon"><Icon name="pen" size={22} /></div>
     <div class="empty-text">
       <strong>Connect a language model</strong>
-      <span>A free model on this PC keeps everything private. An online provider is faster on most PCs.</span>
+      <span>A free model on this device keeps everything private. An online provider is faster on most computers.</span>
     </div>
     {#each s.localAi ?? [] as found (found.id)}
       <div class="found" transition:slide={{ duration: 200 }}>
         <ProviderLogo id={found.id} size={36} />
-        <span class="found-text"><strong>{found.name} is running on this PC</strong><span>{found.models.length} {found.models.length === 1 ? "model" : "models"} installed</span></span>
+        <span class="found-text"><strong>{found.name} is running on this device</strong><span>{found.models.length} {found.models.length === 1 ? "model" : "models"} installed</span></span>
         <button class="btn primary sm" disabled={!found.models.length} onclick={() => useLocal(found)}>Use {found.name}</button>
       </div>
     {/each}
@@ -161,7 +161,7 @@
           <ProviderLogo id={provider.id} size={36} />
           <span class="provider-name">
             <strong>{provider.name}{#if i === 0}<span class="default-chip">Default</span>{/if}</strong>
-            <span>{local ? "On this PC" : "Online"}{list?.models?.length ? ` · ${list.models.length} models` : ""}</span>
+            <span>{local ? "On this device" : "Online"}{list?.models?.length ? ` · ${list.models.length} models` : ""}</span>
           </span>
           <SearchSelect
             label="Model for {provider.name}"
@@ -193,7 +193,7 @@
             <div class="field-row">
               <span>API key</span>
               {#if s.apiKeys[provider.id]}
-                <span class="saved"><Icon name="check" size={14} stroke={2.2} /> Saved securely in Windows</span>
+                <span class="saved"><Icon name="check" size={14} stroke={2.2} /> Saved securely on this device</span>
                 <button class="btn ghost sm" onclick={() => act("setApiKey", { provider: provider.id, key: "" })}>Remove</button>
               {:else}
                 <input class="field" type="password" placeholder={local ? "Not needed" : "Paste your key"} bind:value={keyDraft} onkeydown={(e) => e.key === "Enter" && keyDraft.trim() && saveKey(provider.id)} />

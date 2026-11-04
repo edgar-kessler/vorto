@@ -4,10 +4,18 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 /// The engine executable, next to the app's own: Parakeet, and Whisper on the processor.
-pub const ENGINE_EXE: &str = "vorto-engine.exe";
+pub const ENGINE_EXE: &str = if cfg!(windows) {
+    "vorto-engine.exe"
+} else {
+    "vorto-engine"
+};
 /// Whisper on the graphics card. whisper.cpp's Vulkan backend loads the Vulkan loader even to
 /// run on the processor, so this engine only runs where a graphics driver installed it.
-pub const GPU_ENGINE_EXE: &str = "vorto-engine-gpu.exe";
+pub const GPU_ENGINE_EXE: &str = if cfg!(windows) {
+    "vorto-engine-gpu.exe"
+} else {
+    "vorto-engine-gpu"
+};
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "op", rename_all = "snake_case")]
