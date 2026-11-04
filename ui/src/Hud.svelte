@@ -89,7 +89,7 @@
       {/if}
 
       {#if shown.mode === "listening"}
-        <span class="time">{clock(elapsed, s.recordingLimit)}</span>
+        <span class="time">{s.locked ? "Press to finish · " : ""}{clock(elapsed, s.recordingLimit)}</span>
       {/if}
     </div>
     {#if live}

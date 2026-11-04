@@ -101,6 +101,15 @@
       />
     </div>
   </div>
+  {#if !settings.toggle}
+    <div class="row">
+      <div class="label">
+        <strong>Tap twice to keep it on</strong>
+        <span>Talk hands-free. Press the shortcut once more to finish.</span>
+      </div>
+      <div class="control"><Toggle label="Tap twice to keep it on" checked={settings.double_tap} onchange={(v) => set("double_tap", v)} /></div>
+    </div>
+  {/if}
   <div class="row">
     <div class="label">
       <strong>Appearance</strong>
@@ -160,6 +169,13 @@
 
 <h3 class="section-title">Recognition</h3>
 <div class="group">
+  <div class="row">
+    <div class="label">
+      <strong>Remove filler words</strong>
+      <span>Takes out "uh", "ähm" and the like, with no AI. "Um" and "er" only in English.</span>
+    </div>
+    <div class="control"><Toggle label="Remove filler words" checked={settings.remove_fillers} onchange={(v) => set("remove_fillers", v)} /></div>
+  </div>
   <div class="row">
     <div class="label">
       <strong>Language</strong>

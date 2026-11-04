@@ -7,6 +7,11 @@ and Vorto follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Tap your shortcut twice to keep the microphone on and talk hands-free. Press it once more to finish. Holding still works as before.
+- Filler words such as "uh" and "ähm" leave every dictation, with no AI. "Um" and "er" only go in English, where they aren't words. Turn it off in Settings.
+
 ## [1.1.1] - 2026-11-04
 
 ### Changed

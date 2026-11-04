@@ -19,7 +19,7 @@
 
 ## How it works
 
-Hold your shortcut, speak and let go. Your words appear where you were typing.
+Hold your shortcut, speak and let go. Your words appear where you were typing. Tap it twice to keep it on, and press once more to finish.
 
 - **Private:** speech recognition runs on your PC. No account, no telemetry.
 - **Fast:** text is there a moment after you let go, even after long dictations.

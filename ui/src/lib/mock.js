@@ -22,7 +22,7 @@ export function startMock({ app, level, route }) {
     phase: "ready", detail: "", progress: -1, downloading: null, downloadError: null,
     recording: hudMode === "listening", recordingSince: Date.now() - Number(params.get("elapsed") ?? 0) * 1000, recordingLimit: 120,
     dictatingHere: false, live: "", dictations: 0,
-    settings: { gpu: true, model: "parakeet-v3", language: "auto", microphone: "", hotkey: [163], toggle: false, live_preview: true, sounds: true, highlight: true, hud_position: "top", onboarded: !params.get("onboarding"), idle_minutes: 0, paste: true, method: "paste", append_space: false, history: params.get("history") !== "off", restore_clipboard: true, overlay: true, auto_update: true, autostart: false, typing_wpm: 40, theme: params.get("theme") ?? "system",
+    settings: { gpu: true, model: "parakeet-v3", language: "auto", microphone: "", hotkey: [163], toggle: false, double_tap: true, remove_fillers: true, live_preview: true, sounds: true, highlight: true, hud_position: "top", onboarded: !params.get("onboarding"), idle_minutes: 0, paste: true, method: "paste", append_space: false, history: params.get("history") !== "off", restore_clipboard: true, overlay: true, auto_update: true, autostart: false, typing_wpm: 40, theme: params.get("theme") ?? "system",
       vocabulary: ["Vorto", "Tauri", "Kessler"], dismissed: [], learn: true, learned: [{ from: "Warto", to: "Vorto", count: 3 }, { from: "Schatz CN", to: "shadcn", count: 1 }], replacements: [{ from: "new paragraph", to: "\n\n" }],
       shortcuts: { paste_last: [0x11, 0x12, 0x56], undo_last: [], toggle_ai: [], copy_last: [] },
       ai: {
@@ -40,7 +40,7 @@ export function startMock({ app, level, route }) {
     ],
     wordsToday: 31, latest: "", notice: { id: 0, text: "", kind: "info", topic: "" },
     target: { name: "Google Chrome", icon: "" },
-    hud: { mode: hudMode ?? "hidden", text: params.get("text") ?? hudText[hudMode] ?? "", live: params.get("live") ?? "" },
+    locked: params.get("locked") === "1", hud: { mode: hudMode ?? "hidden", text: params.get("text") ?? hudText[hudMode] ?? "", live: params.get("live") ?? "" },
     microphones: ["Microphone (SM950 Microphone)", "Headset (Arctis 7)"],
     dataDir: String.raw`C:\Users\you\AppData\Local\app.vorto.desktop`, version: "1.1.1", gpuBuild: true,
     micTest: false, autostart: false, appIcons: {},

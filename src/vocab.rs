@@ -61,6 +61,70 @@ fn replace_one(text: &str, from: &[char], to: &str) -> String {
 }
 
 /// A short hint for Whisper, which spells words from it the same way.
+/// Hesitations that aren't words in the languages Vorto knows well.
+const FILLERS: &[&str] = &[
+    "uh", "uhh", "uhm", "umm", "ummm", "erm", "ehm", "euh", "äh", "ääh", "ähm", "öh", "öhm", "hm",
+    "hmm", "hmmm",
+];
+/// Hesitations in English that mean something elsewhere: German "um 10 Uhr", "er kommt".
+const ENGLISH_FILLERS: &[&str] = &["um", "er", "ah"];
+
+/// Takes hesitations out of a dictation, keeping the punctuation around them readable.
+pub fn remove_fillers(text: &str, english: bool) -> String {
+    text.split('\n')
+        .map(|line| remove_fillers_in_line(line, english))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn remove_fillers_in_line(line: &str, english: bool) -> String {
+    let mut kept: Vec<String> = Vec::new();
+    let mut capitalize = false;
+    let mut ended_on_filler = false;
+    for word in line.split_whitespace() {
+        let core = word
+            .trim_matches(|c: char| !c.is_alphanumeric())
+            .to_lowercase();
+        let filler = FILLERS.contains(&core.as_str())
+            || (english && ENGLISH_FILLERS.contains(&core.as_str()));
+        ended_on_filler = filler;
+        if !filler {
+            kept.push(if std::mem::take(&mut capitalize) {
+                capitalized(word)
+            } else {
+                word.to_string()
+            });
+            continue;
+        }
+        let ends_sentence = |w: &String| w.ends_with(['.', '!', '?']);
+        match kept.last_mut() {
+            // "Uh, the plan" and "Fine. Uh, the plan": the next word starts the sentence.
+            None => capitalize |= word.starts_with(char::is_uppercase),
+            Some(last) if ends_sentence(last) => capitalize |= word.starts_with(char::is_uppercase),
+            // "We should go, uh." keeps its full stop.
+            Some(last) => {
+                if let Some(end) = word.chars().rev().find(|c| matches!(c, '.' | '!' | '?')) {
+                    last.truncate(last.trim_end_matches(',').len());
+                    last.push(end);
+                }
+            }
+        }
+    }
+    if ended_on_filler {
+        if let Some(last) = kept.last_mut() {
+            last.truncate(last.trim_end_matches(',').len());
+        }
+    }
+    kept.join(" ")
+}
+
+fn capitalized(word: &str) -> String {
+    let mut chars = word.chars();
+    chars.next().map_or_else(String::new, |first| {
+        first.to_uppercase().chain(chars).collect()
+    })
+}
+
 pub fn whisper_prompt(vocabulary: &[String]) -> String {
     let mut prompt = String::new();
     for word in vocabulary {
@@ -1277,6 +1341,36 @@ mod tests {
             sounds_like: vec![],
         }];
         assert!(candidates(&["Die", "Tauris", "sind", "da."], &terms).is_empty());
+    }
+    #[test]
+    fn fillers_leave_and_the_punctuation_stays_readable() {
+        let clean = |text| remove_fillers(text, false);
+        assert_eq!(clean("I think uh we should go"), "I think we should go");
+        assert_eq!(clean("I think, uh, we should go"), "I think, we should go");
+        assert_eq!(clean("Uh, the plan works"), "The plan works");
+        assert_eq!(clean("Fine. Ähm, der Plan geht"), "Fine. Der Plan geht");
+        assert_eq!(clean("We should go, uh."), "We should go.");
+        assert_eq!(clean("We should go, hmm"), "We should go");
+        assert_eq!(clean("Uh. Hmm."), "");
+    }
+    #[test]
+    fn fillers_never_take_real_words() {
+        let clean = |text| remove_fillers(text, false);
+        let german = "Er kommt um zehn, ah so, und summt.";
+        assert_eq!(clean(german), german);
+        assert_eq!(clean("Uh-huh, humm and Hummel"), "Uh-huh, humm and Hummel");
+        assert_eq!(
+            clean("first line\nsecond uh line"),
+            "first line\nsecond line"
+        );
+    }
+    #[test]
+    fn english_hesitations_only_leave_english() {
+        assert_eq!(
+            remove_fillers("Um, I think, er, it works, ah", true),
+            "I think, it works"
+        );
+        assert_eq!(remove_fillers("Um 10 Uhr", false), "Um 10 Uhr");
     }
     #[test]
     fn swapping_keeps_punctuation() {

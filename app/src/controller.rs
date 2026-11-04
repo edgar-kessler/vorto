@@ -343,6 +343,7 @@ struct Editing {
 struct HudSnapshot<'a> {
     hud: HudView<'a>,
     recording: bool,
+    locked: bool,
     recording_since: u64,
     recording_limit: u64,
     settings: HudSettings<'a>,
@@ -406,6 +407,10 @@ struct Flight {
 /// Whether any 30 ms of 16 kHz audio is loud enough to hold speech.
 /// How long the microphone stays on after the shortcut is let go.
 const RELEASE_TAIL: Duration = Duration::from_millis(150);
+/// A press this short is a tap: the microphone waits to see whether a second one follows.
+const TAP: Duration = Duration::from_millis(280);
+/// How long after a tap the second one locks the microphone on.
+const DOUBLE_TAP_GAP: Duration = Duration::from_millis(350);
 
 /// Seconds between looks at the field a dictation went into. A change counts once it's still the
 /// same at the next look, so a word typed halfway teaches nothing.
@@ -539,6 +544,10 @@ pub struct Controller {
     /// The language Whisper heard earlier in this dictation, so a short final part in auto
     /// mode isn't taken for another language.
     detected_language: Option<String>,
+    /// The microphone stays on after a double tap, until the next press.
+    locked: bool,
+    /// When the shortcut came back up after a tap, while a second one could still follow.
+    tap_ended: Option<Instant>,
     last_preview: Instant,
     stopped_at: Instant,
     /// Counts dictations, so late replies for one never change the next.
@@ -664,6 +673,8 @@ impl Controller {
             committed: String::new(),
             committed_end: 0,
             detected_language: None,
+            locked: false,
+            tap_ended: None,
             last_preview: Instant::now(),
             stopped_at: Instant::now(),
             dictation: 0,
@@ -992,11 +1003,25 @@ impl Controller {
             Msg::Hook(HookEvent::Pressed) => {
                 if self.recorder.is_none() {
                     self.start(false);
-                } else if self.store.settings.toggle {
+                } else if self.tap_ended.take().is_some() {
+                    self.locked = true;
+                    self.sound(Sound::Press);
+                } else if self.store.settings.toggle || self.locked {
                     self.stop_recording();
                 }
             }
-            Msg::Hook(HookEvent::Released) => self.stop_recording(),
+            Msg::Hook(HookEvent::Released) => {
+                let settings = &self.store.settings;
+                let tap = settings.double_tap
+                    && !settings.toggle
+                    && self.recorder.is_some()
+                    && self.started.elapsed() < TAP;
+                if tap && !self.locked {
+                    self.tap_ended = Some(Instant::now());
+                } else if !self.locked {
+                    self.stop_recording();
+                }
+            }
             Msg::Hook(HookEvent::Escape) => {
                 if self.recorder.is_some() {
                     self.cancel();
@@ -1787,6 +1812,8 @@ impl Controller {
                 self.committed.clear();
                 self.committed_end = 0;
                 self.detected_language = None;
+                self.locked = false;
+                self.tap_ended = None;
                 self.recorder = Some(recorder);
                 self.started = Instant::now();
                 self.started_epoch = epoch_ms();
@@ -1828,7 +1855,25 @@ impl Controller {
         }
     }
 
+    /// A single tap, with no second one after it: nothing was meant to be said.
+    fn end_tap(&mut self) {
+        if self.recorder.take().is_none() {
+            return;
+        }
+        hotkey::set_recording(false);
+        self.sound(Sound::Release);
+        self.dictation += 1;
+        self.detected_language = None;
+        self.last_used = Instant::now();
+        self.notify(
+            "Too short. Hold to speak, or tap twice to keep it on.",
+            Duration::from_millis(1800),
+        );
+        self.here = false;
+    }
+
     fn stop_recording(&mut self) {
+        self.tap_ended = None;
         let Some(recorder) = self.recorder.take() else {
             return;
         };
@@ -1947,6 +1992,7 @@ impl Controller {
         }
     }
     fn cancel(&mut self) {
+        self.tap_ended = None;
         let was_recording = self.recorder.take().is_some();
         hotkey::set_recording(false);
         if was_recording {
@@ -2122,6 +2168,14 @@ impl Controller {
     fn deliver(&mut self, text: String, seconds: f32) {
         self.last_used = Instant::now();
         let settings = &self.store.settings;
+        let text = if settings.remove_fillers {
+            let english = settings.language == "en"
+                || settings.model == "parakeet-en"
+                || self.detected_language.as_deref() == Some("en");
+            vocab::remove_fillers(&text, english)
+        } else {
+            text
+        };
         // Parakeet already checked the learned words against the audio.
         let text = if self.whisper() {
             vocab::apply_learned(text.trim(), &settings.learned)
@@ -2305,6 +2359,13 @@ impl Controller {
 
     fn tick(&mut self) {
         self.pick_up_settings();
+        if self
+            .tap_ended
+            .is_some_and(|at| at.elapsed() >= DOUBLE_TAP_GAP)
+        {
+            self.tap_ended = None;
+            self.end_tap();
+        }
         for event in self.engine.poll() {
             match event {
                 Event::Ready => {
@@ -2548,6 +2609,7 @@ impl Controller {
                 live: if showing { &self.hud.live } else { "" },
             },
             recording: showing && self.recorder.is_some(),
+            locked: showing && self.recorder.is_some() && self.locked,
             recording_since: self.started_epoch,
             recording_limit: MAX_RECORDING_SECS,
             settings: HudSettings {
