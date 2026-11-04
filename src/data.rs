@@ -304,6 +304,8 @@ pub struct Settings {
     /// Virtual-key codes that must all be held; mouse buttons use VK 0x04 to 0x06.
     pub hotkey: Vec<u32>,
     pub toggle: bool,
+    /// While holding is the style: tap the shortcut twice to keep the microphone on.
+    pub double_tap: bool,
     pub idle_minutes: u64,
     /// Insert the text into the app that was focused when dictation began.
     pub paste: bool,
@@ -332,6 +334,8 @@ pub struct Settings {
     pub dismissed: Vec<String>,
     /// Learn from the words the user corrects, in History or right after a dictation.
     pub learn: bool,
+    /// Take hesitations such as "uh" out of every dictation, with no language model.
+    pub remove_fillers: bool,
     /// What Vorto heard and what the user wanted instead, newest last.
     pub learned: Vec<Learned>,
     /// Applied to every dictation, before AI editing.
@@ -577,6 +581,8 @@ impl Default for Settings {
             microphone: String::new(),
             hotkey: vec![VK_RCONTROL],
             toggle: false,
+            double_tap: true,
+            remove_fillers: true,
             idle_minutes: 0,
             paste: true,
             method: "paste".into(),
